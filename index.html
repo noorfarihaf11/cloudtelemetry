@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Presensi QR Dinamis</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      :root{
+        --bg:#f4f5f9;--surface:#fff;--surface2:#f0f1f5;
+        --border:#e2e4ec;--text:#1e2031;--muted:#6b7085;
+        --accent:#4361ee;--accent-l:#5a78f0;--accent-glow:rgba(67,97,238,.12);
+        --success:#0ea371;--danger:#e5484d;--warn:#d97706;
+        --radius:14px;--radius-sm:10px;
+        --shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+        --shadow-md:0 4px 20px rgba(0,0,0,.08);
+      }
+      body{
+        font-family:'Plus Jakarta Sans',-apple-system,sans-serif;
+        background:var(--bg);color:var(--text);
+        min-height:100vh;display:flex;flex-direction:column;align-items:center;
+        -webkit-font-smoothing:antialiased;
+      }
+
+      /* ─── HEADER ─── */
+      .header{
+        width:100%;padding:18px 24px;display:flex;align-items:center;
+        justify-content:center;gap:10px;border-bottom:1px solid var(--border);
+        background:var(--surface);position:sticky;top:0;z-index:10;
+      }
+      .header .logo{
+        width:36px;height:36px;background:var(--accent);border-radius:10px;
+        display:flex;align-items:center;justify-content:center;
+        font-weight:800;font-size:13px;color:#fff;
+      }
+      .header h1{font-size:17px;font-weight:700}
+      .header .btn-back{
+        position:absolute;left:16px;background:var(--surface);
+        border:1px solid var(--border);color:var(--muted);
+        padding:7px 14px;border-radius:var(--radius-sm);cursor:pointer;
+        font-size:13px;font-family:inherit;font-weight:500;
+        transition:.2s ease;display:none;
+      }
+      .header .btn-back:hover{background:var(--surface2);color:var(--text)}
+      .header .btn-back.visible{display:inline-flex;align-items:center;gap:4px}
+
+      /* ─── CONTAINER ─── */
+      .container{width:100%;max-width:480px;padding:24px 16px 48px;flex:1}
+
+      /* ─── VIEW ─── */
+      .view{display:none;animation:fadeSlide .3s ease-out}
+      .view.active{display:block}
+      @keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+      /* ─── ROLE SELECTION ─── */
+      .role-hero{text-align:center;margin-bottom:32px}
+      .role-hero h2{font-size:26px;font-weight:800;margin-bottom:8px}
+      .role-hero p{color:var(--muted);font-size:14px;line-height:1.6}
+      .role-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      .role-card{
+        background:var(--surface);border:1px solid var(--border);
+        border-radius:var(--radius);padding:28px 16px;text-align:center;
+        cursor:pointer;transition:.2s ease;box-shadow:var(--shadow);
+      }
+      .role-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+      .role-card .icon{
+        width:56px;height:56px;border-radius:16px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:28px;margin:0 auto 14px;
+      }
+      .role-card.dosen .icon{background:rgba(67,97,238,.1)}
+      .role-card.mhs .icon{background:rgba(14,163,113,.1)}
+      .role-card h3{font-size:16px;font-weight:700;margin-bottom:4px}
+      .role-card p{font-size:12px;color:var(--muted)}
+
+      /* ─── CARD ─── */
+      .card{
+        background:var(--surface);border:1px solid var(--border);
+        border-radius:var(--radius);padding:24px;margin-bottom:16px;
+        box-shadow:var(--shadow);
+      }
+      .card-title{font-size:15px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+      .card-title .dot{width:8px;height:8px;border-radius:50%}
+      .dot.blue{background:var(--accent)} .dot.green{background:var(--success)} .dot.red{background:var(--danger)}
+
+      /* ─── FORM ─── */
+      .form-group{margin-bottom:14px}
+      .form-group label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
+      .form-group input{
+        width:100%;padding:12px 14px;background:var(--surface2);
+        border:1px solid var(--border);border-radius:var(--radius-sm);
+        color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:.2s ease;
+      }
+      .form-group input::placeholder{color:var(--muted)}
+      .form-group input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+
+      /* ─── BUTTONS ─── */
+      .btn{
+        display:inline-flex;align-items:center;justify-content:center;gap:8px;
+        width:100%;padding:13px 20px;border:none;border-radius:var(--radius-sm);
+        font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s ease;
+      }
+      .btn-primary{background:var(--accent);color:#fff}
+      .btn-primary:hover{background:var(--accent-l)}
+      .btn-primary:active{transform:scale(.98)}
+      .btn-primary:disabled,.btn-success:disabled{opacity:.4;cursor:not-allowed;transform:none}
+      .btn-success{background:var(--success);color:#fff}
+      .btn-success:hover{opacity:.9}
+      .btn-success:active{transform:scale(.98)}
+      .btn-outline{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+      .btn-outline:hover{background:var(--surface2)}
+      .btn-sm{padding:10px 16px;font-size:13px}
+
+      /* ─── QR ─── */
+      .qr-wrapper{background:#fff;border-radius:14px;padding:20px;display:inline-flex;margin:16px auto;border:1px solid var(--border);box-shadow:var(--shadow)}
+      .qr-center{text-align:center}
+      .qr-info{margin-top:14px;text-align:center}
+      .qr-info .token-text{font-family:'Courier New',monospace;font-size:12px;background:var(--surface2);padding:8px 14px;border-radius:var(--radius-sm);color:var(--accent);word-break:break-all;display:block;margin-top:8px}
+      .qr-info .expires{font-size:13px;margin-top:8px;font-weight:700}
+      .timer-bar{height:4px;background:var(--surface2);border-radius:2px;margin-top:12px;overflow:hidden}
+      .timer-bar .fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear}
+
+      /* ─── SCANNER ─── */
+      #scanner-box{width:100%;border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+
+      /* ─── CAMERA NOTICE ─── */
+      .cam-notice{
+        background:rgba(217,119,6,.06);border:1px solid rgba(217,119,6,.2);
+        border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;
+        font-size:12px;color:var(--warn);line-height:1.6;display:none;
+      }
+      .cam-notice strong{display:block;margin-bottom:4px;font-size:13px}
+
+      /* ─── RESULT ─── */
+      .result-card{
+        background:rgba(14,163,113,.06);border:1px solid rgba(14,163,113,.2);
+        border-radius:var(--radius);padding:20px;margin-bottom:16px;text-align:center;
+      }
+      .result-card .big-check{font-size:48px;margin-bottom:8px}
+      .result-card .title{font-size:18px;font-weight:800;color:var(--success);margin-bottom:4px}
+      .result-card .meta{font-size:13px;color:var(--muted);margin-top:4px}
+
+      /* ─── STATUS ─── */
+      .status-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;margin-top:8px}
+      .status-badge.checked{background:rgba(14,163,113,.1);color:var(--success)}
+      .status-badge.not-found{background:rgba(107,112,133,.1);color:var(--muted)}
+
+      /* ─── TOAST ─── */
+      .toast-box{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+      .toast{padding:14px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:#fff;box-shadow:var(--shadow-md);animation:toastIn .3s ease-out;max-width:340px}
+      .toast.success{background:var(--success)}.toast.error{background:var(--danger)}.toast.info{background:var(--accent)}
+      @keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+      /* ─── SPINNER ─── */
+      .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+      @keyframes spin{to{transform:rotate(360deg)}}
+
+      @media(max-width:480px){.role-cards{grid-template-columns:1fr}.header .btn-back{padding:6px 10px;font-size:12px}}
+    </style>
+  </head>
+  <body>
+
+    <!-- HEADER -->
+    <div class="header">
+      <button class="btn-back" id="btnBack" onclick="showView('role')">← Kembali</button>
+      <div class="logo">QR</div>
+      <h1>Presensi QR Dinamis</h1>
+    </div>
+
+    <!-- MAIN -->
+    <div class="container">
+
+      <!-- ═══ VIEW: Role Selection ═══ -->
+      <div id="view-role" class="view active">
+        <div class="role-hero">
+          <h2>Selamat Datang 👋</h2>
+          <p>Sistem Presensi QR Dinamis<br/>Pilih peran Anda untuk melanjutkan</p>
+        </div>
+        <div class="role-cards">
+          <div class="role-card dosen" onclick="showView('dosen')">
+            <div class="icon">👨‍🏫</div>
+            <h3>Dosen</h3>
+            <p>Generate QR Code untuk sesi kuliah</p>
+          </div>
+          <div class="role-card mhs" onclick="showView('mahasiswa')">
+            <div class="icon">🎓</div>
+            <h3>Mahasiswa</h3>
+            <p>Scan QR & Check-in presensi</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW: Dosen ═══ -->
+      <div id="view-dosen" class="view">
+        <div class="card">
+          <div class="card-title"><span class="dot blue"></span> Generate QR Presensi</div>
+          <div class="form-group">
+            <label>Course ID</label>
+            <input type="text" id="courseId" placeholder="contoh: cloud-101" />
+          </div>
+          <div class="form-group">
+            <label>Session ID</label>
+            <input type="text" id="sessionId" placeholder="contoh: sesi-kuliah-001" />
+          </div>
+          <button class="btn btn-primary" id="btnGenerate" onclick="generateQR()">🔑 Generate QR Token</button>
+        </div>
+
+        <!-- QR Result -->
+        <div id="qrResult" class="card" style="display:none">
+          <div class="card-title"><span class="dot green"></span> QR Code Aktif</div>
+          <div class="qr-center">
+            <div class="qr-wrapper"><div id="qrcode"></div></div>
+          </div>
+          <div class="qr-info">
+            <div class="expires" id="qrExpiry"></div>
+            <span class="token-text" id="qrTokenText"></span>
+            <div class="timer-bar"><div class="fill" id="timerFill"></div></div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm" style="flex:1" onclick="generateQR()">🔄 Generate Ulang</button>
+            <button class="btn btn-outline btn-sm" style="flex:1" onclick="copyToken()">📋 Salin Token</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW: Mahasiswa ═══ -->
+      <div id="view-mahasiswa" class="view">
+        <!-- Identitas -->
+        <div class="card">
+          <div class="card-title"><span class="dot green"></span> Identitas Mahasiswa</div>
+          <div class="form-group">
+            <label>User ID / NIM</label>
+            <input type="text" id="userId" placeholder="contoh: 12345678" />
+          </div>
+        </div>
+
+        <!-- Scanner -->
+        <div class="card">
+          <div class="card-title"><span class="dot blue"></span> Scan QR Token</div>
+
+          <!-- Camera notice (shown on error) -->
+          <div class="cam-notice" id="camNotice">
+            <strong>⚠️ Kamera live tidak tersedia</strong>
+            Akses kamera diblokir oleh iframe Google Apps Script.<br/>
+            Gunakan tombol <strong>"📸 Foto QR"</strong> di bawah untuk memindai QR dari foto/kamera.
+          </div>
+
+          <div id="scanner-box"></div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button class="btn btn-outline btn-sm" id="btnStartScan" onclick="startScanner()" style="flex:1">📷 Buka Kamera</button>
+            <button class="btn btn-outline btn-sm" id="btnStopScan" onclick="stopScanner()" style="flex:1;display:none">⏹ Tutup Kamera</button>
+          </div>
+
+          <!-- Foto QR: works on mobile (opens camera) and desktop (file picker) -->
+          <div style="margin-bottom:14px">
+            <label class="btn btn-outline btn-sm" style="cursor:pointer;position:relative">
+              📸 Foto QR (dari kamera / file)
+              <input type="file" accept="image/*" capture="environment" id="qrFileInput" onchange="scanFromFile(this)" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" />
+            </label>
+            <div id="scanFileStatus" style="font-size:12px;color:var(--muted);margin-top:6px;text-align:center"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Atau masukkan Token secara manual</label>
+            <input type="text" id="manualToken" placeholder="paste token QR di sini..." />
+          </div>
+          <button class="btn btn-success" id="btnCheckin" onclick="doCheckin()">✅ Check-in Sekarang</button>
+        </div>
+
+        <!-- Checkin Result -->
+        <div id="checkinResult" style="display:none"></div>
+
+        <!-- Status Presensi -->
+        <div class="card">
+          <div class="card-title"><span class="dot red"></span> Cek Status Presensi</div>
+          <div class="form-group">
+            <label>Course ID</label>
+            <input type="text" id="statusCourseId" placeholder="cloud-101" />
+          </div>
+          <div class="form-group">
+            <label>Session ID</label>
+            <input type="text" id="statusSessionId" placeholder="sesi-kuliah-001" />
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="checkStatus()">🔍 Cek Status</button>
+          <div id="statusResult" style="margin-top:14px"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-box" id="toastBox"></div>
+
+    <script>
+      // ─── STATE ───
+      let qrTimerInterval = null;
+      let html5QrScanner = null;
+
+      // ─── VIEW MANAGEMENT ───
+      function showView(name) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        const target = document.getElementById('view-' + name);
+        if (target) target.classList.add('active');
+
+        const btnBack = document.getElementById('btnBack');
+        if (name === 'role') {
+          btnBack.classList.remove('visible');
+          stopScanner();
+        } else {
+          btnBack.classList.add('visible');
+        }
+      }
+
+      // ─── TOAST ───
+      function showToast(msg, type) {
+        const box = document.getElementById('toastBox');
+        const t = document.createElement('div');
+        t.className = 'toast ' + (type || 'info');
+        t.textContent = msg;
+        box.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+      }
+
+      // ─── LOADING ───
+      function setLoading(id, on) {
+        const btn = document.getElementById(id);
+        if (on) { btn.disabled = true; btn._orig = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Memproses...'; }
+        else { btn.disabled = false; btn.innerHTML = btn._orig || btn.innerHTML; }
+      }
+
+      // ─── ESCAPE ───
+      function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+      // ═══════════════════════════════════════════════
+      //  DOSEN: GENERATE QR
+      // ═══════════════════════════════════════════════
+      function generateQR() {
+        const courseId = document.getElementById('courseId').value.trim();
+        const sessionId = document.getElementById('sessionId').value.trim();
+        if (!courseId || !sessionId) { showToast('Course ID dan Session ID wajib diisi!', 'error'); return; }
+
+        setLoading('btnGenerate', true);
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            setLoading('btnGenerate', false);
+
+            // result = { qr_token, qr_url, expires_at }
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+              text: result.qr_url,
+              width: 200, height: 200,
+              colorDark: '#1a1d27', colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qrTokenText').textContent = result.qr_token;
+            document.getElementById('qrResult').style.display = 'block';
+
+            startTimer(new Date(result.expires_at));
+            showToast('QR Token berhasil di-generate!', 'success');
+          })
+          .withFailureHandler(function(err) {
+            setLoading('btnGenerate', false);
+            showToast('Error: ' + err.message, 'error');
+          })
+          .generateQrToken({
+            course_id: courseId,
+            session_id: sessionId,
+            ts: new Date().toISOString()
+          });
+      }
+
+      // ─── TIMER ───
+      function startTimer(expiresAt) {
+        if (qrTimerInterval) clearInterval(qrTimerInterval);
+        const totalMs = expiresAt.getTime() - Date.now();
+        const expiryEl = document.getElementById('qrExpiry');
+        const fillEl = document.getElementById('timerFill');
+
+        qrTimerInterval = setInterval(() => {
+          const rem = expiresAt.getTime() - Date.now();
+          if (rem <= 0) {
+            clearInterval(qrTimerInterval);
+            expiryEl.textContent = '⚠️ Token kedaluwarsa!';
+            expiryEl.style.color = 'var(--danger)';
+            fillEl.style.width = '0%';
+            return;
+          }
+          const m = Math.floor(rem / 60000);
+          const s = Math.floor((rem % 60000) / 1000);
+          expiryEl.textContent = '⏱ Kedaluwarsa dalam ' + m + ':' + String(s).padStart(2, '0');
+          expiryEl.style.color = rem < 60000 ? 'var(--danger)' : 'var(--warn)';
+          fillEl.style.width = (rem / totalMs * 100) + '%';
+        }, 1000);
+      }
+
+      // ─── COPY TOKEN ───
+      function copyToken() {
+        const txt = document.getElementById('qrTokenText').textContent;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(txt).then(() => showToast('Token disalin!', 'success'));
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = txt; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); ta.remove();
+          showToast('Token disalin!', 'success');
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      //  MAHASISWA: SCANNER
+      // ═══════════════════════════════════════════════
+      function startScanner() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          document.getElementById('camNotice').style.display = 'block';
+          showToast('Kamera live tidak tersedia. Gunakan tombol "📸 Foto QR" di bawahnya.', 'error');
+          return;
+        }
+
+        showToast('Meminta izin kamera...', 'info');
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+          .then(function(stream) {
+            stream.getTracks().forEach(function(track) { track.stop(); });
+            var container = document.getElementById('scanner-box');
+            container.innerHTML = '<div id="qr-reader" style="width:100%"></div>';
+
+            html5QrScanner = new Html5Qrcode('qr-reader');
+            html5QrScanner.start(
+              { facingMode: 'environment' },
+              { fps: 10, qrbox: { width: 220, height: 220 } },
+              function(decodedText) { handleScanResult(decodedText); stopScanner(); },
+              function() {}
+            ).then(function() {
+              document.getElementById('camNotice').style.display = 'none';
+              document.getElementById('btnStartScan').style.display = 'none';
+              document.getElementById('btnStopScan').style.display = 'inline-flex';
+              showToast('Kamera aktif! Arahkan ke QR Code.', 'success');
+            }).catch(function() {
+              document.getElementById('camNotice').style.display = 'block';
+              container.innerHTML = '';
+              showToast('Gagal memulai scanner. Gunakan "📸 Foto QR".', 'error');
+            });
+          })
+          .catch(function() {
+            document.getElementById('camNotice').style.display = 'block';
+            showToast('Kamera live diblokir. Gunakan tombol "📸 Foto QR" untuk scan dari foto.', 'error');
+          });
+      }
+
+      // ─── SCAN FROM FILE / CAMERA PHOTO ───
+      function scanFromFile(input) {
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        var statusEl = document.getElementById('scanFileStatus');
+        statusEl.textContent = '⏳ Memindai QR dari foto...';
+
+        var scanner = new Html5Qrcode('scanner-box-temp-' + Date.now());
+        // Create temp container
+        var temp = document.createElement('div');
+        temp.id = scanner._elementId || 'qr-temp-' + Date.now();
+        temp.style.display = 'none';
+        document.body.appendChild(temp);
+
+        Html5Qrcode.scanFile(file, true)
+          .then(function(decodedText) {
+            handleScanResult(decodedText);
+            statusEl.textContent = '✅ QR berhasil dipindai!';
+            statusEl.style.color = 'var(--success)';
+          })
+          .catch(function() {
+            statusEl.textContent = '❌ QR tidak terdeteksi. Coba foto lebih jelas.';
+            statusEl.style.color = 'var(--danger)';
+            showToast('QR tidak terdeteksi dari foto. Pastikan foto jelas.', 'error');
+          });
+
+        // Reset input agar bisa pilih file yang sama lagi
+        input.value = '';
+      }
+
+      // ─── HANDLE SCAN RESULT ───
+      function handleScanResult(decodedText) {
+        try {
+          var url = new URL(decodedText);
+          var token = url.searchParams.get('token');
+          var courseId = url.searchParams.get('course_id');
+          var sessionId = url.searchParams.get('session_id');
+          if (token) document.getElementById('manualToken').value = token;
+          if (courseId) document.getElementById('statusCourseId').value = courseId;
+          if (sessionId) document.getElementById('statusSessionId').value = sessionId;
+        } catch (e) {
+          document.getElementById('manualToken').value = decodedText;
+        }
+        showToast('QR berhasil dipindai!', 'success');
+      }
+
+      function stopScanner() {
+        if (html5QrScanner) {
+          html5QrScanner.stop().then(function() { html5QrScanner.clear(); html5QrScanner = null; }).catch(function() {});
+        }
+        document.getElementById('scanner-box').innerHTML = '';
+        document.getElementById('btnStartScan').style.display = 'inline-flex';
+        document.getElementById('btnStopScan').style.display = 'none';
+      }
+
+      // ═══════════════════════════════════════════════
+      //  MAHASISWA: CHECK-IN
+      // ═══════════════════════════════════════════════
+      function doCheckin() {
+        const userId = document.getElementById('userId').value.trim();
+        const token = document.getElementById('manualToken').value.trim();
+        const courseId = document.getElementById('statusCourseId').value.trim();
+        const sessionId = document.getElementById('statusSessionId').value.trim();
+
+        if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
+        if (!token) { showToast('Token QR wajib diisi! Scan QR atau input manual.', 'error'); return; }
+
+        setLoading('btnCheckin', true);
+
+        // Generate device id sederhana
+        let deviceId = localStorage.getItem('device_id');
+        if (!deviceId) {
+          deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+          localStorage.setItem('device_id', deviceId);
+        }
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            setLoading('btnCheckin', false);
+            var el = document.getElementById('checkinResult');
+            el.style.display = 'block';
+            el.innerHTML =
+              '<div class="result-card">' +
+                '<div class="big-check">✅</div>' +
+                '<div class="title">Check-in Berhasil!</div>' +
+                '<div class="meta">ID: ' + esc(result.presence_id) + '</div>' +
+                '<div class="meta">Status: ' + esc(result.status) + '</div>' +
+              '</div>';
+            showToast('Check-in berhasil!', 'success');
+          })
+          .withFailureHandler(function(err) {
+            setLoading('btnCheckin', false);
+            showToast('Error: ' + err.message, 'error');
+          })
+          .checkinPresence({
+            qr_token: token,
+            user_id: userId,
+            device_id: deviceId,
+            course_id: courseId,
+            session_id: sessionId,
+            ts: new Date().toISOString()
+          });
+      }
+
+      // ═══════════════════════════════════════════════
+      //  MAHASISWA: CEK STATUS
+      // ═══════════════════════════════════════════════
+      function checkStatus() {
+        const userId = document.getElementById('userId').value.trim();
+        const courseId = document.getElementById('statusCourseId').value.trim();
+        const sessionId = document.getElementById('statusSessionId').value.trim();
+        if (!userId || !courseId || !sessionId) {
+          showToast('User ID, Course ID, dan Session ID wajib diisi!', 'error'); return;
+        }
+
+        var el = document.getElementById('statusResult');
+        el.innerHTML = '<p style="text-align:center;color:var(--muted)">⏳ Memuat...</p>';
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.status === 'checked_in') {
+              el.innerHTML = '<div style="text-align:center"><span class="status-badge checked">✅ Sudah Check-in</span><div style="margin-top:8px;font-size:12px;color:var(--muted)">Waktu: ' + (result.last_ts || '-') + '</div></div>';
+            } else {
+              el.innerHTML = '<div style="text-align:center"><span class="status-badge not-found">❌ Belum Check-in</span></div>';
+            }
+          })
+          .withFailureHandler(function(err) {
+            el.innerHTML = '<p style="text-align:center;color:var(--danger)">Error: ' + esc(err.message) + '</p>';
+          })
+          .getPresenceStatus({ user_id: userId, course_id: courseId, session_id: sessionId });
+      }
+
+      // ─── Auto-fill dari URL params (jika buka dari QR) ───
+      (function() {
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get('token');
+        if (token) {
+          // Langsung ke view mahasiswa
+          showView('mahasiswa');
+          document.getElementById('manualToken').value = token;
+          var courseId = params.get('course_id');
+          var sessionId = params.get('session_id');
+          if (courseId) document.getElementById('statusCourseId').value = courseId;
+          if (sessionId) document.getElementById('statusSessionId').value = sessionId;
+          showToast('Token dari QR berhasil dimuat!', 'success');
+        }
+      })();
+    </script>
+  </body>
+</html>
