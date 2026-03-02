@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Scanner Presensi Mahasiswa</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a23; color: #e8e8ef; text-align: center; padding: 2rem; }
+    .card { background: #22222e; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); max-width: 400px; margin: auto; border: 1px solid #2a2a38; }
+    input { width: 90%; padding: 10px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #6c5ce7; background: #0f0f13; color: white; text-align: center; font-weight: bold;}
+    #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px;}
+    .status { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 6px; background: #0f0f13;}
+    .success { color: #00cec9; }
+    .error { color: #fd79a8; }
+  </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+  <div class="card">
+    <h2 style="color: #6c5ce7;">Scan QR Kelas</h2>
+    <p style="font-size: 14px; color: #8888a0;">Pastikan NIM/User ID terisi sebelum scan</p>
+
+    <input type="text" id="input-nim" placeholder="Masukkan NIM (Cth: MHS-20230001)">
+
+    <div id="reader"></div>
+    
+    <div id="status-text" class="status">Arahkan kamera ke QR Code</div>
+  </div>
+
+  <script>
+    let html5QrcodeScanner;
+
+    function onScanSuccess(decodedText, decodedResult) {
+      const nim = document.getElementById('input-nim').value.trim();
+      
+      if (!nim) {
+        document.getElementById('status-text').innerHTML = "<span class='error'>Isi NIM kamu terlebih dahulu!</span>";
+        return;
+      }
+
+      // Hentikan kamera sementara saat memproses data
+      html5QrcodeScanner.clear();
+      document.getElementById('status-text').innerHTML = "Memproses data presensi...";
+
+      // Siapkan data untuk dikirim ke Google Sheets
+      const payload = {
+        user_id: nim,
+        device_id: "web-scanner",
+        course_id: "cloud-101",
+        session_id: "sesi-02",
+        qr_token: decodedText, // Ini adalah token hasil scan kamera
+        ts: new Date().toISOString()
+      };
+
+      // Kirim ke backend (Code.gs)
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response.ok) {
+            document.getElementById('status-text').innerHTML = "<span class='success'>✅ Berhasil Check-In!</span>";
+          } else {
+            document.getElementById('status-text').innerHTML = "<span class='error'>❌ Gagal: " + response.error + "</span>";
+            // Jika gagal (misal expired), kamera bisa dinyalakan lagi dengan me-refresh halaman
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('status-text').innerHTML = "<span class='error'>❌ Error Jaringan</span>";
+        })
+        .processCheckinUI(payload);
+    }
+
+    // Menyalakan Kamera (Kamera belakang jika di HP)
+    html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+    html5QrcodeScanner.render(onScanSuccess);
+  </script>
+</body>
+</html>
