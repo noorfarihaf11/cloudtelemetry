@@ -7,34 +7,43 @@ export default function ScannerPage() {
   const [status, setStatus] = useState("Arahkan kamera ke QR Code");
   const nimRef = useRef<HTMLInputElement>(null);
   const isProcessingRef = useRef(false);
+  
+  // "Gembok" untuk mencegah kamera dipanggil dua kali oleh React Strict Mode
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
-    // Kamera langsung diinisialisasi begitu halaman dimuat
+    // Jika scanner sudah menyala, hentikan eksekusi selanjutnya
+    if (scannerRef.current) return;
+
+    // Inisialisasi scanner dengan pengaturan yang lebih ramah HP mobile
     const scanner = new Html5QrcodeScanner(
       "reader",
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      false
+      { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0, // Membantu mencegah layar hitam/gepeng di HP
+      },
+      false // false = matikan UI bawaan library yang jelek
     );
+    
+    scannerRef.current = scanner;
 
     scanner.render(
       async (decodedText) => {
         const nim = nimRef.current?.value.trim();
         
-        // Peringatan jika NIM belum diisi saat QR ter-scan
         if (!nim) {
           setStatus("❌ Isi NIM kamu terlebih dahulu!");
           return;
         }
 
-        // Mencegah proses berulang saat kamera membaca QR yang sama berkali-kali
         if (isProcessingRef.current) return;
         isProcessingRef.current = true;
         
-        scanner.pause(true); // Jeda kamera sebentar
+        scanner.pause(true); 
         setStatus("⏳ Memproses data presensi...");
 
         try {
-          // Menembak API Route lokal Next.js
           const res = await fetch("/api/checkin", {
             method: "POST",
             headers: {
@@ -43,8 +52,7 @@ export default function ScannerPage() {
             body: JSON.stringify({
               user_id: nim,
               device_id: "nextjs-web-scanner",
-              course_id: "cloud-101",
-              session_id: "sesi-02",
+              // Matkul & Sesi tidak perlu dikirim karena backend kita sudah pintar (auto-detect)
               qr_token: decodedText,
               ts: new Date().toISOString()
             })
@@ -54,10 +62,10 @@ export default function ScannerPage() {
           
           if (result.ok) {
             setStatus("✅ Berhasil Check-In!");
-            // Kamera tidak dinyalakan lagi setelah sukses
+            // Jika sukses, biarkan kamera mati
           } else {
             setStatus(`❌ Gagal: ${result.error}`);
-            // Nyalakan kamera lagi setelah 3 detik jika token salah/expired
+            // Jika gagal (token expired/salah), nyalakan kamera lagi setelah 3 detik
             setTimeout(() => {
               isProcessingRef.current = false;
               scanner.resume();
@@ -72,13 +80,16 @@ export default function ScannerPage() {
         }
       },
       (err) => {
-        // Abaikan error pembacaan frame kosong dari library
+        // Abaikan error pembacaan frame kosong
       }
     );
 
-    // Cleanup saat komponen ditutup agar kamera tidak terus menyala di background
+    // Saat user keluar dari halaman, bersihkan memori dan matikan kamera
     return () => {
-      scanner.clear().catch(console.error);
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(console.error);
+        scannerRef.current = null;
+      }
     };
   }, []);
 
@@ -86,7 +97,7 @@ export default function ScannerPage() {
     <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 text-white font-sans">
       <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
         <h2 className="text-2xl font-bold text-indigo-400 mb-2 text-center">Scan QR Kelas</h2>
-        <p className="text-gray-400 text-sm mb-6 text-center">Isi NIM kamu, lalu arahkan kamera ke QR</p>
+        <p className="text-gray-400 text-sm mb-6 text-center">Isi NIM kamu, lalu arahkan kamera</p>
 
         <input
           type="text"
@@ -95,13 +106,13 @@ export default function ScannerPage() {
           className="w-full p-3 rounded-lg bg-gray-900 border border-indigo-500 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-6 text-center font-mono uppercase"
         />
 
-        {/* Kotak Scanner - Otomatis terisi oleh Html5QrcodeScanner */}
+        {/* Kotak Scanner - Dihapus pengaturan border yang bikin bentrok di HP */}
         <div 
           id="reader" 
-          className="w-full rounded-lg overflow-hidden border-2 border-dashed border-gray-600 mb-6 bg-black min-h-[250px]"
+          className="w-full rounded-lg mb-6 bg-black min-h-[250px]"
+          style={{ border: 'none' }}
         ></div>
 
-        {/* Status Bar */}
         <div className="bg-gray-900 p-4 rounded-lg text-center font-medium border border-gray-700 shadow-inner">
           {status}
         </div>
