@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Dashboard Presensi Dosen</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 2rem; color: #333; }
+    h1 { text-align: center; color: #2c3e50; margin-bottom: 2rem; }
+    .container { display: flex; gap: 30px; max-width: 900px; margin: auto; }
+    
+    /* Kolom Kiri: Pengaturan & QR */
+    .left-panel { flex: 1; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; }
+    .form-group { margin-bottom: 15px; text-align: left; }
+    label { font-weight: bold; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
+    select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; margin-bottom: 15px;}
+    
+    /* Tombol Dinamis */
+    button { width: 100%; background: #007bff; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button.btn-stop { background: #dc3545; }
+    button:hover { opacity: 0.9; }
+    
+    #qr-container { margin-top: 20px; display: flex; justify-content: center; align-items: center; min-height: 250px; background: #f8f9fa; border: 2px dashed #ddd; border-radius: 8px;}
+    .qr-info { margin-top: 10px; font-weight: bold; color: #e74c3c; font-size: 14px; }
+
+    /* Kolom Kanan: Live List */
+    .right-panel { flex: 1; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+    .right-panel h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #2c3e50; }
+    #student-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; max-height: 400px; }
+    #student-list li { background: #e8f4fd; padding: 10px 15px; margin-bottom: 8px; border-radius: 6px; font-family: monospace; font-size: 16px; font-weight: bold; color: #0d6efd; display: flex; align-items: center;}
+    #student-list li::before { content: "✅"; margin-right: 10px; }
+    .empty-msg { color: #888; font-style: italic; text-align: center; margin-top: 20px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <h1>Dashboard Kelas</h1>
+  
+  <div class="container">
+    <div class="left-panel">
+      <div class="form-group">
+        <label>Pilih Mata Kuliah:</label>
+        <select id="input-course">
+          <option value="Pemrograman Web">Pemrograman Web</option>
+          <option value="Cloud Computing">Cloud Computing</option>
+          <option value="Kecerdasan Buatan">Kecerdasan Buatan</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Pilih Sesi:</label>
+        <select id="input-session">
+          <option value="Sesi-01">Sesi 1</option>
+          <option value="Sesi-02">Sesi 2</option>
+          <option value="Sesi-03">Sesi 3</option>
+          <option value="Sesi-04">Sesi 4</option>
+        </select>
+      </div>
+
+      <button id="btn-toggle" onclick="togglePresence()">Mulai Presensi</button>
+      
+      <div id="qr-container"><span style="color:#aaa;">Tekan Mulai untuk memunculkan QR</span></div>
+      <div id="qr-status" class="qr-info"></div>
+    </div>
+
+    <div class="right-panel">
+      <h3>Sudah Absen (<span id="count">0</span>)</h3>
+      <ul id="student-list">
+        <div class="empty-msg">Belum ada mahasiswa yang absen.</div>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    let isRunning = false;
+    let qrTimerInterval;
+    let pollingInterval;
+
+    function togglePresence() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('btn-toggle');
+      const courseSelect = document.getElementById('input-course');
+      const sessionSelect = document.getElementById('input-session');
+
+      if (isRunning) {
+        // Mode BERJALAN
+        btn.innerText = "Hentikan Presensi";
+        btn.classList.add('btn-stop');
+        courseSelect.disabled = true; // Kunci pilihan saat berjalan
+        sessionSelect.disabled = true;
+        
+        generateQR(); // Langsung buat QR pertama
+        startPolling(); // Mulai tarik data absen
+      } else {
+        // Mode BERHENTI
+        btn.innerText = "Mulai Presensi";
+        btn.classList.remove('btn-stop');
+        courseSelect.disabled = false;
+        sessionSelect.disabled = false;
+        
+        stopPresence();
+      }
+    }
+
+    function generateQR() {
+      if (!isRunning) return; // Jangan generate kalau dosen sudah klik stop
+
+      const courseId = document.getElementById('input-course').value;
+      const sessionId = document.getElementById('input-session').value;
+      const statusDiv = document.getElementById('qr-status');
+      
+      statusDiv.innerText = "Memuat QR baru...";
+
+      const payload = { course_id: courseId, session_id: sessionId, ts: new Date().toISOString() };
+      
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!isRunning) return; // Cegah QR muncul kalau dosen keburu klik stop saat loading
+          
+          if(res.ok) {
+            document.getElementById('qr-container').innerHTML = '';
+            new QRCode(document.getElementById("qr-container"), { 
+              text: res.data.qr_token, 
+              width: 220, 
+              height: 220 
+            });
+
+            startQrTimer(); // Mulai hitung mundur 30 detik
+          } else {
+            alert("Error: " + res.error);
+            togglePresence(); // Matikan sistem jika error
+          }
+        })
+        .processGenerateQR(payload);
+    }
+
+    function startQrTimer() {
+      let timeLeft = 30; // 30 Detik
+      const statusDiv = document.getElementById('qr-status');
+      if(qrTimerInterval) clearInterval(qrTimerInterval);
+      
+      statusDiv.innerText = "QR berganti otomatis dalam: " + timeLeft + " detik";
+      
+      qrTimerInterval = setInterval(() => {
+        timeLeft--;
+        if(timeLeft <= 0) {
+          clearInterval(qrTimerInterval);
+          generateQR(); // Waktu habis? LANGSUNG TEMBAK QR BARU!
+        } else {
+          statusDiv.innerText = "QR berganti otomatis dalam: " + timeLeft + " detik";
+        }
+      }, 1000);
+    }
+
+    function stopPresence() {
+      if(qrTimerInterval) clearInterval(qrTimerInterval);
+      if(pollingInterval) clearInterval(pollingInterval);
+      
+      document.getElementById('qr-container').innerHTML = '<span style="color:#aaa;">Presensi Ditutup</span>';
+      document.getElementById('qr-status').innerText = "";
+    }
+
+    function startPolling() {
+      const courseId = document.getElementById('input-course').value;
+      const sessionId = document.getElementById('input-session').value;
+      
+      if(pollingInterval) clearInterval(pollingInterval);
+      fetchRealtimeData(courseId, sessionId);
+      
+      pollingInterval = setInterval(() => {
+        if (isRunning) fetchRealtimeData(courseId, sessionId);
+      }, 3000);
+    }
+
+    function fetchRealtimeData(courseId, sessionId) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if(res.ok) {
+            const listEl = document.getElementById('student-list');
+            document.getElementById('count').innerText = res.data.length;
+            
+            if(res.data.length === 0) {
+              listEl.innerHTML = '<div class="empty-msg">Belum ada mahasiswa yang absen.</div>';
+            } else {
+              const reversedData = res.data.reverse();
+              listEl.innerHTML = '';
+              reversedData.forEach(userId => {
+                const li = document.createElement('li');
+                li.innerText = userId;
+                listEl.appendChild(li);
+              });
+            }
+          }
+        })
+        .getSessionPresenceData(courseId, sessionId);
+    }
+  </script>
+</body>
+</html>
