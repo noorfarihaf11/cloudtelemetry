@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Presensi QR Dinamis</title>
+    <meta
+      name="description"
+      content="Sistem Presensi QR Code Dinamis — Generate & Scan QR untuk absensi kuliah + Telemetri Sensor"
+    />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4361ee" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Presensi QR" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- OFFLINE BAR -->
+    <div class="offline-bar" id="offlineBar">📡 Anda sedang offline</div>
+
+    <!-- HEADER -->
+    <div class="header">
+      <button class="btn-back" id="btnBack" onclick="showView('role')">
+        ← Kembali
+      </button>
+      <div class="logo">QR</div>
+      <h1>Presensi QR Dinamis</h1>
+    </div>
+
+    <!-- MAIN -->
+    <div class="container">
+      <!-- ═══ VIEW: Role Selection ═══ -->
+      <div id="view-role" class="view active">
+        <div class="role-hero">
+          <h2>Selamat Datang 👋</h2>
+          <p>
+            Sistem Presensi QR Dinamis<br />Pilih peran Anda untuk melanjutkan
+          </p>
+        </div>
+        <div class="role-cards">
+          <div class="role-card dosen" onclick="showView('dosen')">
+            <div class="icon">👨‍🏫</div>
+            <h3>Dosen</h3>
+            <p>Generate QR Code untuk sesi kuliah</p>
+          </div>
+          <div class="role-card mhs" onclick="showView('mahasiswa')">
+            <div class="icon">🎓</div>
+            <h3>Mahasiswa</h3>
+            <p>Scan QR & Check-in presensi</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW: Dosen ═══ -->
+      <div id="view-dosen" class="view">
+        <!-- Setup Card -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot blue"></span> Pengaturan Presensi
+          </div>
+          <div class="form-group">
+            <label>Mata Kuliah</label>
+            <select id="courseId" class="form-select">
+              <option value="Pemrograman Web">Pemrograman Web</option>
+              <option value="Cloud Computing">Cloud Computing</option>
+              <option value="Kecerdasan Buatan">Kecerdasan Buatan</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Sesi</label>
+            <select id="sessionId" class="form-select">
+              <option value="Sesi-01">Sesi 1</option>
+              <option value="Sesi-02">Sesi 2</option>
+              <option value="Sesi-03">Sesi 3</option>
+              <option value="Sesi-04">Sesi 4</option>
+            </select>
+          </div>
+          <button
+            class="btn btn-primary"
+            id="btnTogglePresence"
+            onclick="togglePresence()"
+          >
+            🔑 Mulai Presensi
+          </button>
+        </div>
+
+        <!-- QR Result -->
+        <div id="qrResult" class="card" style="display: none">
+          <div class="card-title">
+            <span class="dot green"></span> QR Code Aktif
+          </div>
+          <div class="qr-center">
+            <div class="qr-wrapper"><div id="qrcode"></div></div>
+          </div>
+          <div class="qr-info">
+            <div class="expires" id="qrExpiry"></div>
+            <span class="token-text" id="qrTokenText"></span>
+            <div class="timer-bar"><div class="fill" id="timerFill"></div></div>
+          </div>
+          <div style="margin-top: 14px; display: flex; gap: 8px">
+            <button
+              class="btn btn-outline btn-sm"
+              style="flex: 1"
+              onclick="copyToken()"
+            >
+              📋 Salin Token
+            </button>
+          </div>
+        </div>
+
+        <!-- Real-time Attendance List -->
+        <div class="card" id="attendanceCard">
+          <div class="card-title">
+            <span class="dot green"></span> Sudah Absen (<span id="attendanceCount">0</span>)
+          </div>
+          <div id="attendanceList" class="attendance-list">
+            <div class="empty-msg">Belum ada mahasiswa yang absen.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW: Mahasiswa ═══ -->
+      <div id="view-mahasiswa" class="view">
+        <!-- Identitas -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot green"></span> Identitas Mahasiswa
+          </div>
+          <div class="form-group">
+            <label>User ID / NIM</label>
+            <input type="text" id="userId" placeholder="contoh: MHS-20230001" />
+          </div>
+          <div class="device-id-info">
+            Device ID: <span id="deviceIdDisplay">-</span>
+          </div>
+        </div>
+
+        <!-- Scanner -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot blue"></span> Scan QR Token
+          </div>
+
+          <!-- Camera notice (shown on error) -->
+          <div class="cam-notice" id="camNotice">
+            <strong>⚠️ Kamera live tidak tersedia</strong>
+            Akses kamera mungkin diblokir oleh browser.<br />
+            Gunakan tombol <strong>"📸 Foto QR"</strong> di bawah untuk memindai
+            QR dari foto/kamera.
+          </div>
+
+          <div id="scanner-box"></div>
+          <div style="display: flex; gap: 8px; margin-bottom: 14px">
+            <button
+              class="btn btn-outline btn-sm"
+              id="btnStartScan"
+              onclick="startScanner()"
+              style="flex: 1"
+            >
+              📷 Buka Kamera
+            </button>
+            <button
+              class="btn btn-outline btn-sm"
+              id="btnStopScan"
+              onclick="stopScanner()"
+              style="flex: 1; display: none"
+            >
+              ⏹ Tutup Kamera
+            </button>
+          </div>
+
+          <!-- Foto QR: works on mobile (opens camera) and desktop (file picker) -->
+          <div style="margin-bottom: 14px">
+            <label
+              class="btn btn-outline btn-sm"
+              style="cursor: pointer; position: relative"
+            >
+              📸 Foto QR (dari kamera / file)
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                id="qrFileInput"
+                onchange="scanFromFile(this)"
+                style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  width: 100%;
+                  height: 100%;
+                  opacity: 0;
+                  cursor: pointer;
+                "
+              />
+            </label>
+            <div
+              id="scanFileStatus"
+              style="
+                font-size: 12px;
+                color: var(--muted);
+                margin-top: 6px;
+                text-align: center;
+              "
+            ></div>
+          </div>
+
+          <div class="form-group">
+            <label>Atau masukkan Token secara manual</label>
+            <input
+              type="text"
+              id="manualToken"
+              placeholder="paste token QR di sini..."
+            />
+          </div>
+          <button class="btn btn-success" id="btnCheckin" onclick="doCheckin()">
+            ✅ Check-in Sekarang
+          </button>
+        </div>
+
+        <!-- Checkin Result -->
+        <div id="checkinResult" style="display: none"></div>
+
+        <!-- Status Presensi -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot red"></span> Cek Status Presensi
+          </div>
+          <div class="form-group">
+            <label>Course ID</label>
+            <input type="text" id="statusCourseId" placeholder="Cloud Computing" />
+          </div>
+          <div class="form-group">
+            <label>Session ID</label>
+            <input
+              type="text"
+              id="statusSessionId"
+              placeholder="Sesi-01"
+            />
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="checkStatus()">
+            🔍 Cek Status
+          </button>
+          <div id="statusResult" style="margin-top: 14px"></div>
+        </div>
+
+        <!-- ═══ SENSOR TELEMETRY ═══ -->
+        <div class="section-divider">
+          <span>📡 Telemetri Sensor</span>
+        </div>
+
+        <!-- Accelerometer -->
+        <div class="card sensor-card">
+          <div class="card-title">
+            <span class="dot blue"></span> Accelerometer
+            <div class="toggle-switch" id="accelToggle" onclick="toggleAccel()">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+          <div class="sensor-status" id="accelStatus">○ Nonaktif</div>
+          <div class="sensor-data-grid">
+            <div class="data-badge">
+              <span class="data-label">X</span>
+              <span class="data-value" id="accelX">-</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Y</span>
+              <span class="data-value" id="accelY">-</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Z</span>
+              <span class="data-value" id="accelZ">-</span>
+            </div>
+          </div>
+          <div class="sensor-footer">
+            Data terkirim: <strong id="accelSentCount">0</strong> sampel
+          </div>
+        </div>
+
+        <!-- GPS -->
+        <div class="card sensor-card">
+          <div class="card-title">
+            <span class="dot green"></span> GPS / Lokasi
+            <div class="toggle-switch" id="gpsToggle" onclick="toggleGPS()">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+          <div class="sensor-status" id="gpsStatus">○ Nonaktif</div>
+          <div class="sensor-data-grid">
+            <div class="data-badge">
+              <span class="data-label">LAT</span>
+              <span class="data-value" id="gpsLat">-</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">LNG</span>
+              <span class="data-value" id="gpsLng">-</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">ACC</span>
+              <span class="data-value" id="gpsAcc">-</span>
+            </div>
+          </div>
+          <div class="sensor-footer">
+            Data terkirim: <strong id="gpsSentCount">0</strong> titik
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTALL BANNER -->
+    <div class="install-banner hidden" id="installBanner">
+      <div class="install-icon">📲</div>
+      <div class="install-text">
+        <strong>Install Presensi QR</strong>
+        <span>Tambahkan ke layar utama untuk akses cepat</span>
+      </div>
+      <button class="btn-install" onclick="installApp()">Install</button>
+      <button class="btn-dismiss" onclick="hideInstallBanner()">✕</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-box" id="toastBox"></div>
+
+    <!-- App Scripts -->
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
