@@ -130,7 +130,18 @@
             <span class="token-text" id="qrTokenText"></span>
             <div class="timer-bar"><div class="fill" id="timerFill"></div></div>
           </div>
+          <div style="margin-top: 14px; display: flex; gap: 8px">
+            <button
+              class="btn btn-outline btn-sm"
+              style="flex: 1"
+              onclick="copyToken()"
+            >
+              Salin Token
+            </button>
+          </div>
         </div>
+
+      </div>
 
       <!-- VIEW: Mahasiswa -->
       <div id="view-mahasiswa" class="view">
@@ -182,14 +193,7 @@
             </button>
           </div>
 
-          <div class="form-group">
-            <label>Atau masukkan Token secara manual</label>
-            <input
-              type="text"
-              id="manualToken"
-              placeholder="paste token QR di sini..."
-            />
-          </div>
+          <input type="hidden" id="manualToken" />
           <button class="btn btn-success" id="btnCheckin" onclick="doCheckin()">
             Check-in Sekarang
           </button>
@@ -198,94 +202,11 @@
         <!-- Checkin Result -->
         <div id="checkinResult" style="display: none"></div>
 
-        <!-- Status Presensi -->
-        <div class="card">
-          <div class="card-title">
-            <span class="dot red"></span> Cek Status Presensi
-          </div>
-          <div class="form-group">
-            <label>Course ID</label>
-            <input type="text" id="statusCourseId" placeholder="Cloud Computing" />
-          </div>
-          <div class="form-group">
-            <label>Session ID</label>
-            <input
-              type="text"
-              id="statusSessionId"
-              placeholder="Sesi-01"
-            />
-          </div>
-          <button class="btn btn-outline btn-sm" onclick="checkStatus()">
-            Cek Status
-          </button>
-          <div id="statusResult" style="margin-top: 14px"></div>
-        </div>
-
-        <!-- SENSOR TELEMETRY -->
-        <div class="section-divider">
-          <span>Telemetri Sensor</span>
-        </div>
-
-        <!-- Accelerometer -->
-        <div class="card sensor-card">
-          <div class="card-title">
-            <span class="dot blue"></span> Accelerometer
-            <div class="toggle-switch" id="accelToggle" onclick="toggleAccel()">
-              <div class="toggle-thumb"></div>
-            </div>
-          </div>
-          <div class="sensor-status" id="accelStatus">Nonaktif</div>
-          <div class="sensor-data-grid">
-            <div class="data-badge">
-              <span class="data-label">X</span>
-              <span class="data-value" id="accelX">-</span>
-            </div>
-            <div class="data-badge">
-              <span class="data-label">Y</span>
-              <span class="data-value" id="accelY">-</span>
-            </div>
-            <div class="data-badge">
-              <span class="data-label">Z</span>
-              <span class="data-value" id="accelZ">-</span>
-            </div>
-          </div>
-          <div class="sensor-footer">
-            Data terkirim: <strong id="accelSentCount">0</strong> sampel
-          </div>
-        </div>
-
-        <!-- GPS -->
-        <div class="card sensor-card">
-          <div class="card-title">
-            <span class="dot green"></span> GPS / Lokasi
-            <div class="toggle-switch" id="gpsToggle" onclick="toggleGPS()">
-              <div class="toggle-thumb"></div>
-            </div>
-          </div>
-          <div class="sensor-status" id="gpsStatus">Nonaktif</div>
-          <div class="sensor-data-grid">
-            <div class="data-badge">
-              <span class="data-label">LAT</span>
-              <span class="data-value" id="gpsLat">-</span>
-            </div>
-            <div class="data-badge">
-              <span class="data-label">LNG</span>
-              <span class="data-value" id="gpsLng">-</span>
-            </div>
-            <div class="data-badge">
-              <span class="data-label">ACC</span>
-              <span class="data-value" id="gpsAcc">-</span>
-            </div>
-          </div>
-          <div class="sensor-footer">
-            Data terkirim: <strong id="gpsSentCount">0</strong> titik
-          </div>
-        </div>
       </div>
     </div>
 
     <!-- INSTALL BANNER -->
-    <div class="install-banner hidden" id="installBanner">
+    <div class="install-banner" id="installBanner">
       <div class="install-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
       </div>

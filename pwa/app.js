@@ -4,24 +4,14 @@
 // ═══════════════════════════════════════════════
 
 // ─── CONFIG ───
-const QR_REFRESH_SECONDS = 30; // Match backend token TTL
-const POLLING_INTERVAL_MS = 3000; // Real-time attendance polling
-const ACCEL_BATCH_INTERVAL_MS = 5000; // Send accel batch every 5s
+const QR_REFRESH_SECONDS = 30;
 
 // ─── STATE ───
 let qrTimerInterval = null;
 let html5QrScanner = null;
-let pollingInterval = null;
 let isPresenceRunning = false;
 let activeCourseId = '';
 let activeSessionId = '';
-
-// Sensor state
-let accelWatching = false;
-let accelBuffer = [];
-let accelBatchTimer = null;
-let gpsWatching = false;
-let gpsWatchId = null;
 
 // ─── DEVICE ID ───
 function getDeviceId() {
@@ -344,24 +334,91 @@ function stopScanner() {
 
 
 // ═══════════════════════════════════════════════
-//  MAHASISWA: CHECK-IN
+//  MAHASISWA: CHECK-IN (One-shot GPS + Accel)
 // ═══════════════════════════════════════════════
+
+// Helper: ambil 1 detik data accelerometer lalu berhenti
+function captureAccelOnce() {
+  return new Promise((resolve) => {
+    if (!window.DeviceMotionEvent) { resolve([]); return; }
+
+    const samples = [];
+    function handler(event) {
+      const a = event.accelerationIncludingGravity || event.acceleration;
+      if (!a) return;
+      samples.push({
+        x: +(a.x || 0).toFixed(2),
+        y: +(a.y || 0).toFixed(2),
+        z: +(a.z || 0).toFixed(2),
+        ts: new Date().toISOString(),
+      });
+    }
+
+    // iOS 13+ permission
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(state => {
+          if (state === 'granted') {
+            window.addEventListener('devicemotion', handler);
+            setTimeout(() => { window.removeEventListener('devicemotion', handler); resolve(samples); }, 1000);
+          } else { resolve([]); }
+        })
+        .catch(() => resolve([]));
+    } else {
+      window.addEventListener('devicemotion', handler);
+      setTimeout(() => { window.removeEventListener('devicemotion', handler); resolve(samples); }, 1000);
+    }
+  });
+}
+
 async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
   const token = document.getElementById('manualToken').value.trim();
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
-  if (!token) { showToast('Token QR wajib diisi! Scan QR atau input manual.', 'error'); return; }
+  if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
 
   setLoading('btnCheckin', true);
 
   try {
+    // 1. Check-in ke backend
     const result = await apiCheckinPresence({
       qr_token: token,
       user_id: userId,
       device_id: getDeviceId(),
     });
 
+    // 2. Ambil GPS + Accel secara paralel (one-shot, tidak terus-menerus)
+    const [gpsData, accelSamples] = await Promise.all([
+      new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos.coords),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        );
+      }),
+      captureAccelOnce(),
+    ]);
+
+    // 3. Kirim data sensor ke backend (fire-and-forget, tidak blokir UI)
+    if (gpsData) {
+      apiLogGPS({
+        device_id: getDeviceId(),
+        lat: gpsData.latitude,
+        lng: gpsData.longitude,
+        accuracy: gpsData.accuracy || '',
+        altitude: gpsData.altitude || '',
+      }).catch(e => console.warn('GPS log error:', e));
+    }
+    if (accelSamples.length > 0) {
+      apiBatchAccel({
+        device_id: getDeviceId(),
+        data: accelSamples,
+      }).catch(e => console.warn('Accel log error:', e));
+    }
+
+    // 4. Tampilkan hasil check-in
     const el = document.getElementById('checkinResult');
     el.style.display = 'block';
 
@@ -400,220 +457,6 @@ async function doCheckin() {
   } finally {
     setLoading('btnCheckin', false);
   }
-}
-
-
-// ═══════════════════════════════════════════════
-//  MAHASISWA: CEK STATUS
-// ═══════════════════════════════════════════════
-async function checkStatus() {
-  const userId = document.getElementById('userId').value.trim();
-  const courseId = document.getElementById('statusCourseId').value.trim();
-  const sessionId = document.getElementById('statusSessionId').value.trim();
-  if (!userId || !courseId || !sessionId) {
-    showToast('User ID, Course ID, dan Session ID wajib diisi!', 'error');
-    return;
-  }
-
-  const el = document.getElementById('statusResult');
-  el.innerHTML = '<p style="text-align:center;color:var(--muted)">Memuat...</p>';
-
-  try {
-    const result = await apiGetPresenceStatus({
-      user_id: userId,
-      course_id: courseId,
-      session_id: sessionId,
-    });
-
-    if (result.status === 'checked_in') {
-      el.innerHTML = '<div style="text-align:center"><span class="status-badge checked">Sudah Check-in</span>' +
-        '<div style="margin-top:8px;font-size:12px;color:var(--muted)">Waktu: ' + (result.last_ts || '-') + '</div></div>';
-    } else {
-      el.innerHTML = '<div style="text-align:center"><span class="status-badge not-found">Belum Check-in</span></div>';
-    }
-  } catch (err) {
-    el.innerHTML = '<p style="text-align:center;color:var(--danger)">Error: ' + esc(err.message) + '</p>';
-  }
-}
-
-
-// ═══════════════════════════════════════════════
-//  SENSOR: ACCELEROMETER
-// ═══════════════════════════════════════════════
-function toggleAccel() {
-  if (accelWatching) {
-    stopAccel();
-  } else {
-    startAccel();
-  }
-}
-
-function startAccel() {
-  const xEl = document.getElementById('accelX');
-  const yEl = document.getElementById('accelY');
-  const zEl = document.getElementById('accelZ');
-  const statusEl = document.getElementById('accelStatus');
-  const toggle = document.getElementById('accelToggle');
-
-  if (!window.DeviceMotionEvent) {
-    showToast('Accelerometer tidak tersedia di perangkat ini.', 'error');
-    return;
-  }
-
-  // iOS 13+ requires permission
-  if (typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(state => {
-        if (state === 'granted') {
-          attachAccelListener(xEl, yEl, zEl, statusEl, toggle);
-        } else {
-          showToast('Izin accelerometer ditolak.', 'error');
-        }
-      })
-      .catch(err => showToast('Error: ' + err.message, 'error'));
-  } else {
-    attachAccelListener(xEl, yEl, zEl, statusEl, toggle);
-  }
-}
-
-function attachAccelListener(xEl, yEl, zEl, statusEl, toggle) {
-  accelWatching = true;
-  accelBuffer = [];
-  if (toggle) toggle.classList.add('active');
-  if (statusEl) statusEl.textContent = 'Merekam...';
-  if (statusEl) statusEl.style.color = 'var(--success)';
-
-  window._accelHandler = function (event) {
-    const a = event.accelerationIncludingGravity || event.acceleration;
-    if (!a) return;
-
-    const x = (a.x || 0).toFixed(2);
-    const y = (a.y || 0).toFixed(2);
-    const z = (a.z || 0).toFixed(2);
-
-    if (xEl) xEl.textContent = x;
-    if (yEl) yEl.textContent = y;
-    if (zEl) zEl.textContent = z;
-
-    accelBuffer.push({ x: +x, y: +y, z: +z, ts: new Date().toISOString() });
-  };
-  window.addEventListener('devicemotion', window._accelHandler);
-
-  // Batch send every 5s
-  accelBatchTimer = setInterval(() => sendAccelBatch(), ACCEL_BATCH_INTERVAL_MS);
-  showToast('Accelerometer aktif!', 'success');
-}
-
-async function sendAccelBatch() {
-  if (accelBuffer.length === 0) return;
-  const batch = accelBuffer.splice(0, accelBuffer.length);
-  try {
-    const res = await apiBatchAccel({
-      device_id: getDeviceId(),
-      data: batch,
-    });
-    const countEl = document.getElementById('accelSentCount');
-    if (countEl) {
-      const prev = parseInt(countEl.textContent) || 0;
-      countEl.textContent = prev + res.saved;
-    }
-  } catch (err) {
-    console.warn('Accel batch error:', err.message);
-  }
-}
-
-function stopAccel() {
-  accelWatching = false;
-  if (window._accelHandler) {
-    window.removeEventListener('devicemotion', window._accelHandler);
-    window._accelHandler = null;
-  }
-  if (accelBatchTimer) {
-    clearInterval(accelBatchTimer);
-    accelBatchTimer = null;
-  }
-  // Send remaining buffer
-  sendAccelBatch();
-
-  const toggle = document.getElementById('accelToggle');
-  const statusEl = document.getElementById('accelStatus');
-  if (toggle) toggle.classList.remove('active');
-  if (statusEl) { statusEl.textContent = 'Nonaktif'; statusEl.style.color = 'var(--muted)'; }
-  showToast('Accelerometer dihentikan.', 'info');
-}
-
-
-// ═══════════════════════════════════════════════
-//  SENSOR: GPS
-// ═══════════════════════════════════════════════
-function toggleGPS() {
-  if (gpsWatching) {
-    stopGPS();
-  } else {
-    startGPS();
-  }
-}
-
-function startGPS() {
-  if (!navigator.geolocation) {
-    showToast('GPS tidak tersedia di perangkat ini.', 'error');
-    return;
-  }
-
-  const toggle = document.getElementById('gpsToggle');
-  const statusEl = document.getElementById('gpsStatus');
-  gpsWatching = true;
-  if (toggle) toggle.classList.add('active');
-  if (statusEl) { statusEl.textContent = 'Melacak...'; statusEl.style.color = 'var(--success)'; }
-
-  gpsWatchId = navigator.geolocation.watchPosition(
-    async function (pos) {
-      const latEl = document.getElementById('gpsLat');
-      const lngEl = document.getElementById('gpsLng');
-      const accEl = document.getElementById('gpsAcc');
-
-      if (latEl) latEl.textContent = pos.coords.latitude.toFixed(6);
-      if (lngEl) lngEl.textContent = pos.coords.longitude.toFixed(6);
-      if (accEl) accEl.textContent = (pos.coords.accuracy || 0).toFixed(0) + 'm';
-
-      try {
-        await apiLogGPS({
-          device_id: getDeviceId(),
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy || '',
-          altitude: pos.coords.altitude || '',
-        });
-        const countEl = document.getElementById('gpsSentCount');
-        if (countEl) {
-          const prev = parseInt(countEl.textContent) || 0;
-          countEl.textContent = prev + 1;
-        }
-      } catch (err) {
-        console.warn('GPS log error:', err.message);
-      }
-    },
-    function (err) {
-      showToast('GPS Error: ' + err.message, 'error');
-      stopGPS();
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-  );
-
-  showToast('GPS tracking aktif!', 'success');
-}
-
-function stopGPS() {
-  gpsWatching = false;
-  if (gpsWatchId !== null) {
-    navigator.geolocation.clearWatch(gpsWatchId);
-    gpsWatchId = null;
-  }
-  const toggle = document.getElementById('gpsToggle');
-  const statusEl = document.getElementById('gpsStatus');
-  if (toggle) toggle.classList.remove('active');
-  if (statusEl) { statusEl.textContent = 'Nonaktif'; statusEl.style.color = 'var(--muted)'; }
-  showToast('GPS tracking dihentikan.', 'info');
 }
 
 
