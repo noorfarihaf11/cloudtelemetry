@@ -40,6 +40,10 @@ function routeRequest(method, e) {
     // Endpoint: GET /exec?path=presence/status
     else if (method === "GET" && path === "/presence/status") {
       result = getPresenceStatus(e.parameter || {});
+    }
+    // Endpoint: GET /exec?path=presence/list
+    else if (method === "GET" && path === "/presence/list") {
+      result = getSessionPresenceList(e.parameter || {});
     } else {
       return jsonError("endpoint_not_found: " + path);
     }

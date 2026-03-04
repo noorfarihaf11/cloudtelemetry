@@ -83,6 +83,7 @@ function checkinPresence(body) {
   let valid = false;
   let expires;
   let tokenRow = -1;
+  let courseId = "";
   let sessionId = "";
 
   for (let i = 1; i < data.length; i++) {
@@ -90,6 +91,7 @@ function checkinPresence(body) {
       valid = true;
       expires = new Date(data[i][4]); // expires_at
       tokenRow = i + 1;
+      courseId = data[i][1];  // course_id from token
       sessionId = data[i][2]; // session_id
 
       // Cek apakah token sudah dipakai
@@ -121,7 +123,7 @@ function checkinPresence(body) {
   presenceSheet.appendRow([
     body.user_id,
     body.device_id || "",
-    body.course_id || "",
+    courseId,
     sessionId,
     body.qr_token,
     new Date().toISOString(),
@@ -167,6 +169,30 @@ function getPresenceStatus(params) {
     session_id: params.session_id,
     status: "not_found",
   };
+}
+
+// ─── GET SESSION PRESENCE LIST ──────────────────────────────
+// Dipanggil oleh route: GET /presence/list?course_id=...&session_id=...
+// Return: array of user_ids yang sudah check-in di session tersebut
+function getSessionPresenceList(params) {
+  if (!params.course_id) throw new Error("missing_field: course_id");
+  if (!params.session_id) throw new Error("missing_field: session_id");
+
+  const sheet = getSheet(SHEET_PRESENCE);
+  const data = sheet.getDataRange().getValues();
+  // Kolom: 0=user_id, 1=device_id, 2=course_id, 3=session_id, 4=qr_token, 5=ts
+
+  const users = [];
+  for (let i = 1; i < data.length; i++) {
+    if (
+      data[i][2] === params.course_id &&
+      data[i][3] === params.session_id
+    ) {
+      users.push(data[i][0]); // user_id
+    }
+  }
+
+  return users;
 }
 
 // ─── SETUP SHEETS ───────────────────────────────────────────
