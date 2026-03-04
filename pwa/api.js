@@ -2,7 +2,7 @@
 //  API Module — fetch() wrapper for GAS Backend v5
 // ═══════════════════════════════════════════════
 
-// ⚠️ GANTI URL INI dengan URL deployment Google Apps Script kamu
+// GANTI URL INI dengan URL deployment Google Apps Script kamu
 // Cara mendapatkan:
 //   1. Buka Apps Script → Deploy → Manage deployments
 //   2. Copy URL web app (yang diakhiri /exec)
