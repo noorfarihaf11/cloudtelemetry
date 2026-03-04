@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accel Client</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    h2 { text-align: center; margin-bottom: 20px; color: #333; }
+    label { font-size: 13px; color: #666; display: block; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+    .xyz {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .xyz-box {
+      flex: 1;
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .xyz-box .label { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .xyz-box .val { font-size: 22px; font-weight: bold; color: #333; }
+    .status-bar {
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      background: #f0f0f0;
+      color: #666;
+    }
+    .status-bar.sending { background: #e8f5e9; color: #2e7d32; }
+    .status-bar.error   { background: #ffebee; color: #c62828; }
+    .status-bar.idle    { background: #f0f0f0; color: #666;    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-start { background: #1976d2; color: white; }
+    .btn-stop  { background: #e53935; color: white; display: none; }
+    .device-tag {
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>📡 Accel Sender</h2>
+
+  <label>Device ID</label>
+  <input type="text" id="deviceInput" placeholder="Contoh: hp-budi" />
+
+  <div class="xyz">
+    <div class="xyz-box">
+      <div class="label">X</div>
+      <div class="val" id="x">-</div>
+    </div>
+    <div class="xyz-box">
+      <div class="label">Y</div>
+      <div class="val" id="y">-</div>
+    </div>
+    <div class="xyz-box">
+      <div class="label">Z</div>
+      <div class="val" id="z">-</div>
+    </div>
+  </div>
+
+  <div class="status-bar idle" id="status">Idle — belum mulai</div>
+
+  <button class="btn btn-start" id="btnStart" onclick="startSending()">▶ Mulai Kirim</button>
+  <button class="btn btn-stop"  id="btnStop"  onclick="stopSending()">⏹ Stop</button>
+
+  <div class="device-tag" id="deviceTag"></div>
+</div>
+
+<script>
+const BASE_URL = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
+
+let batch    = [];
+let sending  = false;
+let intervalSend = null;
+
+function setStatus(text, type){
+  const el = document.getElementById("status");
+  el.innerText = text;
+  el.className = "status-bar " + (type || "idle");
+}
+
+let lastSampleTime = 0;
+
+function onMotion(e){
+  const now = Date.now();
+  if(now - lastSampleTime < 500) return; // ✅ skip kalau belum 500ms
+  lastSampleTime = now;
+
+  const a = e.accelerationIncludingGravity;
+  if(!a) return;
+
+  document.getElementById("x").innerText = (a.x || 0).toFixed(2);
+  document.getElementById("y").innerText = (a.y || 0).toFixed(2);
+  document.getElementById("z").innerText = (a.z || 0).toFixed(2);
+
+  batch.push({
+    t: new Date().toISOString(),
+    x: parseFloat((a.x || 0).toFixed(4)),
+    y: parseFloat((a.y || 0).toFixed(4)),
+    z: parseFloat((a.z || 0).toFixed(4))
+  });
+}
+
+async function sendBatch(){
+  if(batch.length === 0){ setStatus("Menunggu data sensor...", "idle"); return; }
+
+  const DEVICE_ID = document.getElementById("deviceInput").value.trim();
+  const payload = {
+    device_id: DEVICE_ID,
+    ts: new Date().toISOString(),
+    samples: [...batch]
+  };
+  batch = [];
+
+  try{
+    setStatus("Mengirim " + payload.samples.length + " sampel...", "idle");
+    
+    const res = await fetch(`${BASE_URL}?path=telemetry/accel`, {
+      method: "POST",
+      redirect: "follow",
+      // ✅ hapus Content-Type header — ini penyebab CORS preflight gagal di GAS
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text(); // ✅ baca as text dulu, bukan .json() langsung
+    const json = JSON.parse(text);
+
+    if(json.ok){
+      setStatus("✅ Terkirim — " + json.data.accepted + " sampel", "sending");
+    } else {
+      setStatus("❌ " + json.error, "error");
+    }
+  }catch(err){
+    setStatus("❌ Gagal: " + err.message, "error");
+  }
+}
+
+function startSending(){
+  const DEVICE_ID = document.getElementById("deviceInput").value.trim();
+  if(!DEVICE_ID){
+    alert("Isi Device ID dulu ya!");
+    return;
+  }
+
+  if(!window.DeviceMotionEvent){
+    alert("HP kamu tidak support accelerometer!");
+    return;
+  }
+
+  // iOS 13+ butuh permission
+  if(typeof DeviceMotionEvent.requestPermission === "function"){
+    DeviceMotionEvent.requestPermission()
+      .then(state => {
+        if(state === "granted") beginSending();
+        else alert("Izin accelerometer ditolak!");
+      });
+  } else {
+    beginSending();
+  }
+}
+
+function beginSending(){
+  sending = true;
+  document.getElementById("deviceInput").disabled = true;
+  document.getElementById("btnStart").style.display = "none";
+  document.getElementById("btnStop").style.display  = "block";
+  document.getElementById("deviceTag").innerText =
+    "Mengirim sebagai: " + document.getElementById("deviceInput").value.trim();
+
+  window.addEventListener("devicemotion", onMotion);
+  intervalSend = setInterval(sendBatch, 5000); // tiap 5 detik
+  setStatus("Mengumpulkan data...", "idle");
+}
+
+function stopSending(){
+  sending = false;
+  window.removeEventListener("devicemotion", onMotion);
+  clearInterval(intervalSend);
+  document.getElementById("deviceInput").disabled = false;
+  document.getElementById("btnStart").style.display = "block";
+  document.getElementById("btnStop").style.display  = "none";
+  document.getElementById("deviceTag").innerText    = "";
+  setStatus("Idle — belum mulai", "idle");
+}
+</script>
+</body>
+</html>

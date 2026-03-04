@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+
+  <style>
+    body{
+      font-family: Arial;
+      background:#f4f6f8;
+      text-align:center;
+      padding:40px;
+    }
+
+    .card{
+      background:white;
+      padding:30px;
+      border-radius:12px;
+      width:420px;
+      margin:auto;
+      box-shadow:0 10px 25px rgba(0,0,0,.08);
+    }
+
+    button{
+      background:#2563eb;
+      color:white;
+      border:none;
+      padding:12px 20px;
+      border-radius:8px;
+      font-size:16px;
+      cursor:pointer;
+    }
+
+    button:hover{
+      background:#1d4ed8;
+    }
+
+    #qr{
+      margin-top:20px;
+      display:flex;
+      justify-content:center;
+      min-height:220px;
+      align-items:center;
+    }
+
+    .status{
+      margin-top:15px;
+      font-weight:bold;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+
+<body>
+
+<div class="card">
+
+  <h2>QR Presensi Cloud Computing</h2>
+
+  <p>
+    Course: <b>cloud-101</b><br>
+    Session: <b>sesi-01</b>
+  </p>
+
+  <div id="qr">
+    Klik generate untuk membuat QR
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <br>
+  <button onclick="generate()">Generate QR</button>
+
+</div>
+
+<script>
+
+let qr=null;
+let refreshTimer=null;
+const TTL = 120000; 
+
+// AUTO START saat halaman dibuka
+window.onload = () => {
+  generate();
+};
+
+function generate(){
+
+  document.getElementById("status").innerText="Generating QR...";
+
+  const payload={
+    course_id:"cloud-101",
+    session_id:"sesi-01",
+    ts:new Date().toISOString()
+  };
+
+  google.script.run
+    .withSuccessHandler(renderQR)
+    .withFailureHandler(()=>alert("Server error"))
+    .processGenerateQR(payload);
+}
+
+function renderQR(res){
+
+  if(!res.ok){
+    document.getElementById("status").innerText=res.error;
+    return;
+  }
+
+  // hapus QR lama
+  document.getElementById("qr").innerHTML="";
+
+  qr=new QRCode(document.getElementById("qr"),{
+    text: res.data.qr_token,
+    width:220,
+    height:220
+  });
+
+  const expireTime = new Date(res.data.expires_at);
+
+  startCountdown(expireTime);
+
+  // AUTO REFRESH TOKEN
+  if(refreshTimer) clearTimeout(refreshTimer);
+
+  refreshTimer = setTimeout(()=>{
+    generate();
+  }, TTL);
+}
+
+
+// ================= COUNTDOWN =================
+let countdownInterval=null;
+
+function startCountdown(expireTime){
+
+  if(countdownInterval)
+    clearInterval(countdownInterval);
+
+  countdownInterval=setInterval(()=>{
+
+    const now=new Date();
+    const diff=expireTime-now;
+
+    if(diff<=0){
+      document.getElementById("status").innerText="Refreshing QR...";
+      clearInterval(countdownInterval);
+      return;
+    }
+
+    const sec=Math.floor(diff/1000);
+
+    document.getElementById("status").innerText =
+      "QR aktif • sisa "+sec+" detik";
+
+  },1000);
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accel Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    h2 { text-align: center; margin-bottom: 6px; color: #333; }
+    .device-label {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #ccc;
+    }
+    .status-row {
+      text-align: center;
+      font-size: 14px;
+      margin-bottom: 20px;
+      color: #555;
+    }
+    .xyz {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .xyz-box {
+      flex: 1;
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 18px 8px;
+      text-align: center;
+    }
+    .xyz-box .axis { font-size: 13px; color: #999; margin-bottom: 6px; }
+    .xyz-box .val  { font-size: 26px; font-weight: bold; color: #1976d2; }
+    .last-update {
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>📊 Accel Viewer</h2>
+  <div class="device-label">Device: <strong id="deviceLabel">-</strong></div>
+
+  <div class="status-row">
+    <span class="status-dot" id="dot"></span>
+    <span id="statusText">Connecting...</span>
+  </div>
+
+  <div class="xyz">
+    <div class="xyz-box"><div class="axis">X</div><div class="val" id="x">-</div></div>
+    <div class="xyz-box"><div class="axis">Y</div><div class="val" id="y">-</div></div>
+    <div class="xyz-box"><div class="axis">Z</div><div class="val" id="z">-</div></div>
+  </div>
+
+  <div class="last-update" id="lastUpdate">Last update: -</div>
+
+  <select id="deviceSelect" onchange="onDeviceChange()">
+    <option value="">-- Pilih Device --</option>
+  </select>
+</div>
+
+<script>
+const BASE_URL = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
+
+let DEVICE_ID = "<?= device_id ?>";
+
+const xEl          = document.getElementById("x");
+const yEl          = document.getElementById("y");
+const zEl          = document.getElementById("z");
+const statusText   = document.getElementById("statusText");
+const dot          = document.getElementById("dot");
+const lastUpdate   = document.getElementById("lastUpdate");
+const deviceLabel  = document.getElementById("deviceLabel");
+const deviceSelect = document.getElementById("deviceSelect");
+
+function setStatus(state){
+  const map = {
+    connecting: { text:"Connecting...", color:"#f59e0b" },
+    online:     { text:"Online",        color:"#22c55e" },
+    offline:    { text:"Offline",       color:"#ef4444" }
+  };
+  statusText.innerText    = map[state].text;
+  dot.style.background    = map[state].color;
+}
+
+async function loadLatest(){
+  if(!DEVICE_ID){ setStatus("offline"); return; }
+  setStatus("connecting");
+  try{
+    const res  = await fetch(`${BASE_URL}?path=telemetry/accel/latest&device_id=${DEVICE_ID}`, { redirect:"follow" });
+    const json = await res.json();
+    if(!json.ok){ setStatus("offline"); return; }
+
+    const d = json.data;
+    xEl.innerText = parseFloat(d.x).toFixed(2);
+    yEl.innerText = parseFloat(d.y).toFixed(2);
+    zEl.innerText = parseFloat(d.z).toFixed(2);
+    lastUpdate.innerText = "Last update: " + new Date(d.t).toLocaleTimeString();
+    setStatus("online");
+  }catch(err){
+    setStatus("offline");
+  }
+}
+
+async function loadDevices(){
+  try{
+    const res  = await fetch(`${BASE_URL}?path=telemetry/accel/devices`, { redirect:"follow" });
+    const json = await res.json();
+    json.data.devices.forEach(id => {
+      const opt = document.createElement("option");
+      opt.value = opt.text = id;
+      deviceSelect.appendChild(opt);
+    });
+    if(DEVICE_ID){
+      deviceSelect.value = DEVICE_ID;
+      deviceLabel.innerText = DEVICE_ID;
+    }
+  }catch(e){ console.error(e); }
+}
+
+function onDeviceChange(){
+  DEVICE_ID = deviceSelect.value;
+  deviceLabel.innerText = DEVICE_ID || "-";
+  loadLatest();
+}
+
+loadDevices();
+loadLatest();
+setInterval(loadLatest, 5000); // refresh tiap 5 detik
+</script>
+</body>
+</html>
