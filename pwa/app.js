@@ -337,7 +337,7 @@ function stopScanner() {
 //  MAHASISWA: CHECK-IN (One-shot GPS + Accel)
 // ═══════════════════════════════════════════════
 
-// Helper: ambil 1 detik data accelerometer lalu berhenti
+// Helper: ambil 3 detik data accelerometer lalu berhenti
 function captureAccelOnce() {
   return new Promise((resolve) => {
     if (!window.DeviceMotionEvent) { resolve([]); return; }
@@ -354,19 +354,24 @@ function captureAccelOnce() {
       });
     }
 
+    function startListening() {
+      window.addEventListener('devicemotion', handler);
+      setTimeout(() => {
+        window.removeEventListener('devicemotion', handler);
+        resolve(samples);
+      }, 3000); // 3 detik untuk menangkap data
+    }
+
     // iOS 13+ permission
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
       DeviceMotionEvent.requestPermission()
         .then(state => {
-          if (state === 'granted') {
-            window.addEventListener('devicemotion', handler);
-            setTimeout(() => { window.removeEventListener('devicemotion', handler); resolve(samples); }, 1000);
-          } else { resolve([]); }
+          if (state === 'granted') { startListening(); }
+          else { resolve([]); }
         })
         .catch(() => resolve([]));
     } else {
-      window.addEventListener('devicemotion', handler);
-      setTimeout(() => { window.removeEventListener('devicemotion', handler); resolve(samples); }, 1000);
+      startListening();
     }
   });
 }
@@ -381,27 +386,29 @@ async function doCheckin() {
   setLoading('btnCheckin', true);
 
   try {
-    // 1. Check-in ke backend
+    // 1. Mulai tangkap sensor DULUAN (berjalan di background)
+    //    Sambil menunggu, kita juga jalankan check-in API secara paralel
+    const accelPromise = captureAccelOnce();
+    const gpsPromise = new Promise((resolve) => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos.coords),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+
+    // 2. Check-in ke backend (berjalan PARALEL dengan sensor capture)
     const result = await apiCheckinPresence({
       qr_token: token,
       user_id: userId,
       device_id: getDeviceId(),
     });
 
-    // 2. Ambil GPS + Accel secara paralel (one-shot, tidak terus-menerus)
-    const [gpsData, accelSamples] = await Promise.all([
-      new Promise((resolve) => {
-        if (!navigator.geolocation) { resolve(null); return; }
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve(pos.coords),
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-      }),
-      captureAccelOnce(),
-    ]);
+    // 3. Tunggu sensor selesai (GPS + Accel sudah jalan dari tadi)
+    const [gpsData, accelSamples] = await Promise.all([gpsPromise, accelPromise]);
 
-    // 3. Kirim data sensor ke backend (fire-and-forget, tidak blokir UI)
+    // 4. Kirim data sensor ke backend (fire-and-forget, tidak blokir UI)
     if (gpsData) {
       apiLogGPS({
         device_id: getDeviceId(),
