@@ -1,8 +1,4 @@
-// ============================================================
-//  GAS Backend API v5 — QR 30 Detik, Real-time List, Auto-Detect
-// ============================================================
 
-// ─── PENTING: GANTI ID DI BAWAH INI DENGAN ID SPREADSHEET KAMU ───
 const SPREADSHEET_ID = '1BxNXy6JwtlsV07_yg7u30OcNe5skqGH8hkzHiwxR5zw';
 
 const SHEET = {
@@ -21,10 +17,6 @@ const HEADERS = {
 
 // WAKTU TOKEN: 30 DETIK
 const QR_TOKEN_TTL_MS = 30 * 1000; 
-
-// ============================================================
-// 1. ROUTER UTAMA (GET & POST)
-// ============================================================
 
 function doGet(e) {
     try {
@@ -71,10 +63,6 @@ function doPost(e) {
     }
 }
 
-// ============================================================
-// 2. FUNGSI LOGIKA PRESENSI (CHECK-IN & GENERATE QR)
-// ============================================================
-
 function generateQRToken(body) {
     if (!body.course_id || !body.session_id) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.TOKENS);
@@ -95,7 +83,6 @@ function processGenerateQR(payload) {
     }
 }
 
-// --- FUNGSI CHECK-IN (VERSI PINTAR AUTO-DETECT COURSE) ---
 function checkin(body) {
     // Scanner cuma perlu kirim user_id dan qr_token
     if (!body.user_id || !body.qr_token) throw new Error('Missing fields');

@@ -126,7 +126,6 @@
           <button class="btn btn-outline btn-sm" id="btnStopScan" onclick="stopScanner()" style="flex:1;display:none">⏹ Tutup Kamera</button>
         </div>
 
-        <!-- Foto QR: opens camera on mobile, file picker on desktop -->
         <div style="margin-bottom:14px">
           <label class="btn btn-outline btn-sm" style="cursor:pointer;position:relative">
             📸 Foto QR (dari kamera / file)
@@ -135,29 +134,7 @@
           <div id="scanFileStatus" style="font-size:12px;color:var(--muted);margin-top:6px;text-align:center"></div>
         </div>
 
-        <div class="form-group">
-          <label>Atau masukkan Token secara manual</label>
-          <input type="text" id="manualToken" placeholder="paste token QR di sini..." />
-        </div>
-        <button class="btn btn-success" id="btnCheckin" onclick="doCheckin()">✅ Check-in Sekarang</button>
-      </div>
-
       <div id="checkinResult" style="display:none"></div>
-
-      <!-- Status -->
-      <div class="card">
-        <div class="card-title"><span class="dot red"></span> Cek Status Presensi</div>
-        <div class="form-group">
-          <label>Course ID</label>
-          <input type="text" id="statusCourseId" placeholder="cloud-101" />
-        </div>
-        <div class="form-group">
-          <label>Session ID</label>
-          <input type="text" id="statusSessionId" placeholder="sesi-kuliah-001" />
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="checkStatus()">🔍 Cek Status</button>
-        <div id="statusResult" style="margin-top:14px"></div>
-      </div>
     </div>
 
     <div class="toast-box" id="toastBox"></div>
@@ -319,30 +296,6 @@
             qr_token: token, user_id: userId, device_id: deviceId,
             course_id: courseId, session_id: sessionId, ts: new Date().toISOString()
           });
-      }
-
-      // ═══ CEK STATUS ═══
-      function checkStatus() {
-        var userId = document.getElementById('userId').value.trim();
-        var courseId = document.getElementById('statusCourseId').value.trim();
-        var sessionId = document.getElementById('statusSessionId').value.trim();
-        if (!userId || !courseId || !sessionId) { showToast('Semua field wajib diisi!', 'error'); return; }
-
-        var el = document.getElementById('statusResult');
-        el.innerHTML = '<p style="text-align:center;color:var(--muted)">⏳ Memuat...</p>';
-
-        google.script.run
-          .withSuccessHandler(function(result) {
-            if (result.status === 'checked_in') {
-              el.innerHTML = '<div style="text-align:center"><span class="status-badge checked">✅ Sudah Check-in</span><div style="margin-top:8px;font-size:12px;color:var(--muted)">Waktu: ' + (result.last_ts || '-') + '</div></div>';
-            } else {
-              el.innerHTML = '<div style="text-align:center"><span class="status-badge not-found">❌ Belum Check-in</span></div>';
-            }
-          })
-          .withFailureHandler(function(err) {
-            el.innerHTML = '<p style="text-align:center;color:var(--danger)">Error: ' + esc(err.message) + '</p>';
-          })
-          .getPresenceStatus({ user_id: userId, course_id: courseId, session_id: sessionId });
       }
     </script>
   </body>
