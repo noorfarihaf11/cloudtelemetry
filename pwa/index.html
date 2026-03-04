@@ -42,12 +42,15 @@
   </head>
   <body>
     <!-- OFFLINE BAR -->
-    <div class="offline-bar" id="offlineBar">📡 Anda sedang offline</div>
+    <div class="offline-bar" id="offlineBar">
+      <span class="offline-dot"></span> Anda sedang offline
+    </div>
 
     <!-- HEADER -->
     <div class="header">
       <button class="btn-back" id="btnBack" onclick="showView('role')">
-        ← Kembali
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Kembali
       </button>
       <div class="logo">QR</div>
       <h1>Presensi QR Dinamis</h1>
@@ -55,29 +58,33 @@
 
     <!-- MAIN -->
     <div class="container">
-      <!-- ═══ VIEW: Role Selection ═══ -->
+      <!-- VIEW: Role Selection -->
       <div id="view-role" class="view active">
         <div class="role-hero">
-          <h2>Selamat Datang 👋</h2>
+          <h2>Selamat Datang</h2>
           <p>
             Sistem Presensi QR Dinamis<br />Pilih peran Anda untuk melanjutkan
           </p>
         </div>
         <div class="role-cards">
           <div class="role-card dosen" onclick="showView('dosen')">
-            <div class="icon">👨‍🏫</div>
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
             <h3>Dosen</h3>
             <p>Generate QR Code untuk sesi kuliah</p>
           </div>
           <div class="role-card mhs" onclick="showView('mahasiswa')">
-            <div class="icon">🎓</div>
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
             <h3>Mahasiswa</h3>
             <p>Scan QR & Check-in presensi</p>
           </div>
         </div>
       </div>
 
-      <!-- ═══ VIEW: Dosen ═══ -->
+      <!-- VIEW: Dosen -->
       <div id="view-dosen" class="view">
         <!-- Setup Card -->
         <div class="card">
@@ -106,7 +113,7 @@
             id="btnTogglePresence"
             onclick="togglePresence()"
           >
-            🔑 Mulai Presensi
+            Mulai Presensi
           </button>
         </div>
 
@@ -129,7 +136,7 @@
               style="flex: 1"
               onclick="copyToken()"
             >
-              📋 Salin Token
+              Salin Token
             </button>
           </div>
         </div>
@@ -145,7 +152,7 @@
         </div>
       </div>
 
-      <!-- ═══ VIEW: Mahasiswa ═══ -->
+      <!-- VIEW: Mahasiswa -->
       <div id="view-mahasiswa" class="view">
         <!-- Identitas -->
         <div class="card">
@@ -169,9 +176,9 @@
 
           <!-- Camera notice (shown on error) -->
           <div class="cam-notice" id="camNotice">
-            <strong>⚠️ Kamera live tidak tersedia</strong>
+            <strong>Kamera live tidak tersedia</strong>
             Akses kamera mungkin diblokir oleh browser.<br />
-            Gunakan tombol <strong>"📸 Foto QR"</strong> di bawah untuk memindai
+            Gunakan tombol <strong>"Foto QR"</strong> di bawah untuk memindai
             QR dari foto/kamera.
           </div>
 
@@ -183,7 +190,7 @@
               onclick="startScanner()"
               style="flex: 1"
             >
-              📷 Buka Kamera
+              Buka Kamera
             </button>
             <button
               class="btn btn-outline btn-sm"
@@ -191,43 +198,8 @@
               onclick="stopScanner()"
               style="flex: 1; display: none"
             >
-              ⏹ Tutup Kamera
+              Tutup Kamera
             </button>
-          </div>
-
-          <!-- Foto QR: works on mobile (opens camera) and desktop (file picker) -->
-          <div style="margin-bottom: 14px">
-            <label
-              class="btn btn-outline btn-sm"
-              style="cursor: pointer; position: relative"
-            >
-              📸 Foto QR (dari kamera / file)
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                id="qrFileInput"
-                onchange="scanFromFile(this)"
-                style="
-                  position: absolute;
-                  top: 0;
-                  left: 0;
-                  width: 100%;
-                  height: 100%;
-                  opacity: 0;
-                  cursor: pointer;
-                "
-              />
-            </label>
-            <div
-              id="scanFileStatus"
-              style="
-                font-size: 12px;
-                color: var(--muted);
-                margin-top: 6px;
-                text-align: center;
-              "
-            ></div>
           </div>
 
           <div class="form-group">
@@ -239,7 +211,7 @@
             />
           </div>
           <button class="btn btn-success" id="btnCheckin" onclick="doCheckin()">
-            ✅ Check-in Sekarang
+            Check-in Sekarang
           </button>
         </div>
 
@@ -264,14 +236,14 @@
             />
           </div>
           <button class="btn btn-outline btn-sm" onclick="checkStatus()">
-            🔍 Cek Status
+            Cek Status
           </button>
           <div id="statusResult" style="margin-top: 14px"></div>
         </div>
 
-        <!-- ═══ SENSOR TELEMETRY ═══ -->
+        <!-- SENSOR TELEMETRY -->
         <div class="section-divider">
-          <span>📡 Telemetri Sensor</span>
+          <span>Telemetri Sensor</span>
         </div>
 
         <!-- Accelerometer -->
@@ -282,7 +254,7 @@
               <div class="toggle-thumb"></div>
             </div>
           </div>
-          <div class="sensor-status" id="accelStatus">○ Nonaktif</div>
+          <div class="sensor-status" id="accelStatus">Nonaktif</div>
           <div class="sensor-data-grid">
             <div class="data-badge">
               <span class="data-label">X</span>
@@ -310,7 +282,7 @@
               <div class="toggle-thumb"></div>
             </div>
           </div>
-          <div class="sensor-status" id="gpsStatus">○ Nonaktif</div>
+          <div class="sensor-status" id="gpsStatus">Nonaktif</div>
           <div class="sensor-data-grid">
             <div class="data-badge">
               <span class="data-label">LAT</span>
@@ -334,13 +306,15 @@
 
     <!-- INSTALL BANNER -->
     <div class="install-banner hidden" id="installBanner">
-      <div class="install-icon">📲</div>
+      <div class="install-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </div>
       <div class="install-text">
         <strong>Install Presensi QR</strong>
         <span>Tambahkan ke layar utama untuk akses cepat</span>
       </div>
       <button class="btn-install" onclick="installApp()">Install</button>
-      <button class="btn-dismiss" onclick="hideInstallBanner()">✕</button>
+      <button class="btn-dismiss" onclick="hideInstallBanner()">&#10005;</button>
     </div>
 
     <!-- Toast -->
