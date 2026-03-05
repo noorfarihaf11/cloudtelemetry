@@ -496,7 +496,9 @@ async function doCheckin() {
 let accelTelemetryActive = false;
 let accelSampleBuffer = [];
 let accelBatchInterval = null;
+let accelLastSampleTime = 0;
 const ACCEL_BATCH_MS = 3000; // 3 detik
+const ACCEL_THROTTLE_MS = 500; // ambil sampel tiap 500ms (max ~6 per batch)
 const MAX_LOG_ITEMS = 20;
 
 function toggleAccelTelemetry() {
@@ -571,10 +573,15 @@ function handleAccelMotion(event) {
   const y = +(a.y || 0).toFixed(2);
   const z = +(a.z || 0).toFixed(2);
 
-  // Update live display
+  // Update live display (always, for smooth UI)
   document.getElementById('accelX').textContent = x;
   document.getElementById('accelY').textContent = y;
   document.getElementById('accelZ').textContent = z;
+
+  // Throttle: hanya ambil sampel tiap 500ms
+  const now = Date.now();
+  if (now - accelLastSampleTime < ACCEL_THROTTLE_MS) return;
+  accelLastSampleTime = now;
 
   // Push to buffer
   accelSampleBuffer.push({
