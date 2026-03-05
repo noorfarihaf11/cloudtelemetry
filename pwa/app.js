@@ -494,11 +494,9 @@ async function doCheckin() {
 // ═══════════════════════════════════════════════
 
 let accelTelemetryActive = false;
-let accelSampleBuffer = [];
+let accelLatestSample = null;
 let accelBatchInterval = null;
-let accelLastSampleTime = 0;
 const ACCEL_BATCH_MS = 3000; // 3 detik
-const ACCEL_THROTTLE_MS = 500; // ambil sampel tiap 500ms (max ~6 per batch)
 const MAX_LOG_ITEMS = 20;
 
 function toggleAccelTelemetry() {
@@ -544,7 +542,7 @@ function startAccelTelemetry() {
 
 function activateAccelSensor(deviceId) {
   accelTelemetryActive = true;
-  accelSampleBuffer = [];
+  accelLatestSample = null;
 
   // Toggle UI
   document.getElementById('accelToggle').classList.add('active');
@@ -578,47 +576,41 @@ function handleAccelMotion(event) {
   document.getElementById('accelY').textContent = y;
   document.getElementById('accelZ').textContent = z;
 
-  // Throttle: hanya ambil sampel tiap 500ms
-  const now = Date.now();
-  if (now - accelLastSampleTime < ACCEL_THROTTLE_MS) return;
-  accelLastSampleTime = now;
-
-  // Push to buffer
-  accelSampleBuffer.push({
+  // Simpan hanya sampel terakhir (akan dikirim 1 per batch)
+  accelLatestSample = {
     t: new Date().toISOString(),
     x: x,
     y: y,
     z: z,
-  });
+  };
 }
 
 async function sendAccelBatch(deviceId) {
-  if (accelSampleBuffer.length === 0) {
+  if (!accelLatestSample) {
     addAccelLog('⏳ Tidak ada sample untuk dikirim', 'info');
     return;
   }
 
-  const samples = [...accelSampleBuffer];
-  accelSampleBuffer = []; // Reset buffer
+  const sample = accelLatestSample;
+  accelLatestSample = null;
 
   const payload = {
     device_id: deviceId,
     ts: new Date().toISOString(),
-    samples: samples,
+    samples: [sample],
   };
 
   try {
     const result = await apiPostAccelTelemetry(payload);
-    const count = result.accepted || samples.length;
     document.getElementById('accelBatchInfo').innerHTML =
-      'Batch terakhir: <strong>' + count + ' samples</strong> — ' +
+      'Batch terakhir: <strong>1 sample</strong> — ' +
       new Date().toLocaleTimeString('id-ID');
-    addAccelLog('📤 Batch terkirim: ' + count + ' samples', 'success');
+    addAccelLog('📤 Batch terkirim: 1 sample', 'success');
   } catch (err) {
     showToast('Gagal kirim batch: ' + err.message, 'error');
     addAccelLog('❌ Gagal kirim: ' + err.message, 'error');
-    // Kembalikan samples yang gagal ke buffer agar dicoba lagi
-    accelSampleBuffer = samples.concat(accelSampleBuffer);
+    // Kembalikan sample jika gagal
+    if (!accelLatestSample) accelLatestSample = sample;
   }
 }
 
@@ -630,9 +622,9 @@ function stopAccelTelemetry() {
     accelBatchInterval = null;
   }
 
-  // Kirim sisa buffer terakhir jika ada
+  // Kirim sampel terakhir jika ada
   const deviceId = document.getElementById('accelDeviceId').value.trim();
-  if (accelSampleBuffer.length > 0 && deviceId) {
+  if (accelLatestSample && deviceId) {
     sendAccelBatch(deviceId);
   }
 
