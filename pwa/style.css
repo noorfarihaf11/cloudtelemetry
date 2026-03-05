@@ -857,10 +857,59 @@ body {
   .role-cards {
     grid-template-columns: 1fr;
   }
+  .role-cards-3 {
+    grid-template-columns: 1fr;
+  }
   .header .btn-back {
     padding: 6px 10px;
     font-size: 12px;
   }
+}
+
+/* ─── ROLE CARDS 3 COLUMNS ─── */
+.role-cards-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+@media (max-width: 600px) {
+  .role-cards-3 {
+    grid-template-columns: 1fr;
+  }
+}
+.role-card.accel .icon {
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--warn);
+}
+
+/* ─── ACCEL LOG ─── */
+.accel-log-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.accel-log-item {
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  animation: fadeSlide 0.25s ease-out;
+  border-left: 3px solid var(--border);
+  background: var(--surface2);
+}
+.accel-log-item.success {
+  border-left-color: var(--success);
+}
+.accel-log-item.error {
+  border-left-color: var(--danger);
+}
+.accel-log-item.info {
+  border-left-color: var(--accent);
+}
+.accel-log-item .log-time {
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 11px;
+  margin-right: 4px;
 }
 
 /* ─── STANDALONE MODE TWEAKS ─── */

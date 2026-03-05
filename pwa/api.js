@@ -2,11 +2,14 @@
 //  API Module — fetch() wrapper for GAS Backend v5
 // ═══════════════════════════════════════════════
 
-// GANTI URL INI dengan URL deployment Google Apps Script kamu
-// Cara mendapatkan:
-//   1. Buka Apps Script → Deploy → Manage deployments
-//   2. Copy URL web app (yang diakhiri /exec)
+// BACKEND PRESENSI QR (backend-gas/)
+// URL deployment Google Apps Script untuk Presensi QR
 const API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
+
+// BACKEND TELEMETRY ACCEL (root Code.js)
+// GANTI URL ini dengan URL deployment GAS project root (cloudtelemetry)
+const API_TELEMETRY = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
+
 
 // Validasi: apakah URL sudah diganti dari placeholder?
 function checkApiBase() {
@@ -160,4 +163,71 @@ async function apiGetGpsMarker(deviceId) {
  */
 async function apiGetGpsPolyline(deviceId, from, to) {
   return apiGet("sensor/gps/polyline", { device_id: deviceId, from, to });
+}
+
+// ─── TELEMETRY ACCEL API (Root Code.js — project terpisah) ───
+
+/**
+ * POST batch accelerometer telemetry data
+ * Backend: Root Code.js (API_TELEMETRY)
+ * Endpoint: POST telemetry/accel
+ * @param {Object} payload - { device_id, ts, samples: [{t, x, y, z}] }
+ * @returns {Promise<{accepted: number}>}
+ */
+async function apiPostAccelTelemetry(payload) {
+  const url = new URL(API_TELEMETRY);
+  url.searchParams.set("path", "telemetry/accel");
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    redirect: "follow",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Unknown error");
+  return json.data;
+}
+
+/**
+ * GET latest accelerometer reading for a device
+ * Backend: Root Code.js (API_TELEMETRY)
+ * Endpoint: GET telemetry/accel/latest?device_id=xxx
+ * @param {string} deviceId
+ * @returns {Promise<{t, x, y, z}>}
+ */
+async function apiGetAccelLatest(deviceId) {
+  const url = new URL(API_TELEMETRY);
+  url.searchParams.set("path", "telemetry/accel/latest");
+  url.searchParams.set("device_id", deviceId);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    redirect: "follow",
+  });
+
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Unknown error");
+  return json.data;
+}
+
+/**
+ * GET all registered device IDs
+ * Backend: Root Code.js (API_TELEMETRY)
+ * Endpoint: GET telemetry/accel/devices
+ * @returns {Promise<{devices: string[]}>}
+ */
+async function apiGetAccelDevices() {
+  const url = new URL(API_TELEMETRY);
+  url.searchParams.set("path", "telemetry/accel/devices");
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    redirect: "follow",
+  });
+
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Unknown error");
+  return json.data;
 }

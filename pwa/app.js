@@ -36,8 +36,30 @@ function showView(name) {
     stopPresenceSession();
     stopAccel();
     stopGPS();
+    stopAdminRefresh();
   } else {
     btnBack.classList.add('visible');
+  }
+
+  // Set correct back target based on hierarchy
+  if (name === 'dosen' || name === 'mahasiswa') {
+    // Dosen/Mahasiswa → back to Presensi QR sub-menu
+    btnBack.onclick = function() { showView('presensi'); };
+  } else if (name === 'accel-client' || name === 'accel-admin') {
+    // Client/Admin → back to Accelerometer sub-menu
+    btnBack.onclick = function() { showView('accel'); };
+  } else if (name === 'presensi' || name === 'accel') {
+    // Sub-menus → back to main menu
+    btnBack.onclick = function() { showView('role'); };
+    stopAccel();
+    stopAdminRefresh();
+  } else {
+    btnBack.onclick = function() { showView('role'); };
+  }
+
+  // Auto-load devices when entering admin view
+  if (name === 'accel-admin') {
+    loadAdminDevices();
   }
 }
 
@@ -463,6 +485,258 @@ async function doCheckin() {
     showToast('Error: ' + errMsg, 'error');
   } finally {
     setLoading('btnCheckin', false);
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+//  ACCELEROMETER TELEMETRY (Continuous Batch)
+// ═══════════════════════════════════════════════
+
+let accelTelemetryActive = false;
+let accelSampleBuffer = [];
+let accelBatchInterval = null;
+const ACCEL_BATCH_MS = 3000; // 3 detik
+const MAX_LOG_ITEMS = 20;
+
+function toggleAccelTelemetry() {
+  if (accelTelemetryActive) {
+    stopAccelTelemetry();
+  } else {
+    startAccelTelemetry();
+  }
+}
+
+function startAccelTelemetry() {
+  const deviceId = document.getElementById('accelDeviceId').value.trim();
+  if (!deviceId) {
+    showToast('Device ID wajib diisi!', 'error');
+    return;
+  }
+
+  if (!window.DeviceMotionEvent) {
+    showToast('Accelerometer tidak didukung di perangkat ini.', 'error');
+    addAccelLog('❌ Sensor tidak didukung', 'error');
+    return;
+  }
+
+  // iOS 13+ permission
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission()
+      .then(state => {
+        if (state === 'granted') {
+          activateAccelSensor(deviceId);
+        } else {
+          showToast('Izin sensor ditolak.', 'error');
+          addAccelLog('❌ Izin sensor ditolak oleh user', 'error');
+        }
+      })
+      .catch(err => {
+        showToast('Error meminta izin: ' + err.message, 'error');
+        addAccelLog('❌ Error permission: ' + err.message, 'error');
+      });
+  } else {
+    activateAccelSensor(deviceId);
+  }
+}
+
+function activateAccelSensor(deviceId) {
+  accelTelemetryActive = true;
+  accelSampleBuffer = [];
+
+  // Toggle UI
+  document.getElementById('accelToggle').classList.add('active');
+  document.getElementById('accelSensorStatus').textContent = 'Sensor aktif — mengumpulkan data...';
+  document.getElementById('accelSensorStatus').style.color = 'var(--success)';
+  document.getElementById('accelDeviceId').disabled = true;
+
+  addAccelLog('✅ Sensor dimulai untuk device: ' + deviceId, 'success');
+
+  // Listen to devicemotion
+  window.addEventListener('devicemotion', handleAccelMotion);
+
+  // Batch send interval every 3 seconds
+  accelBatchInterval = setInterval(() => {
+    sendAccelBatch(deviceId);
+  }, ACCEL_BATCH_MS);
+}
+
+function handleAccelMotion(event) {
+  if (!accelTelemetryActive) return;
+
+  const a = event.accelerationIncludingGravity || event.acceleration;
+  if (!a) return;
+
+  const x = +(a.x || 0).toFixed(2);
+  const y = +(a.y || 0).toFixed(2);
+  const z = +(a.z || 0).toFixed(2);
+
+  // Update live display
+  document.getElementById('accelX').textContent = x;
+  document.getElementById('accelY').textContent = y;
+  document.getElementById('accelZ').textContent = z;
+
+  // Push to buffer
+  accelSampleBuffer.push({
+    t: new Date().toISOString(),
+    x: x,
+    y: y,
+    z: z,
+  });
+}
+
+async function sendAccelBatch(deviceId) {
+  if (accelSampleBuffer.length === 0) {
+    addAccelLog('⏳ Tidak ada sample untuk dikirim', 'info');
+    return;
+  }
+
+  const samples = [...accelSampleBuffer];
+  accelSampleBuffer = []; // Reset buffer
+
+  const payload = {
+    device_id: deviceId,
+    ts: new Date().toISOString(),
+    samples: samples,
+  };
+
+  try {
+    const result = await apiPostAccelTelemetry(payload);
+    const count = result.accepted || samples.length;
+    document.getElementById('accelBatchInfo').innerHTML =
+      'Batch terakhir: <strong>' + count + ' samples</strong> — ' +
+      new Date().toLocaleTimeString('id-ID');
+    addAccelLog('📤 Batch terkirim: ' + count + ' samples', 'success');
+  } catch (err) {
+    showToast('Gagal kirim batch: ' + err.message, 'error');
+    addAccelLog('❌ Gagal kirim: ' + err.message, 'error');
+    // Kembalikan samples yang gagal ke buffer agar dicoba lagi
+    accelSampleBuffer = samples.concat(accelSampleBuffer);
+  }
+}
+
+function stopAccelTelemetry() {
+  accelTelemetryActive = false;
+  window.removeEventListener('devicemotion', handleAccelMotion);
+  if (accelBatchInterval) {
+    clearInterval(accelBatchInterval);
+    accelBatchInterval = null;
+  }
+
+  // Kirim sisa buffer terakhir jika ada
+  const deviceId = document.getElementById('accelDeviceId').value.trim();
+  if (accelSampleBuffer.length > 0 && deviceId) {
+    sendAccelBatch(deviceId);
+  }
+
+  // Toggle UI
+  document.getElementById('accelToggle').classList.remove('active');
+  document.getElementById('accelSensorStatus').textContent = 'Sensor dihentikan';
+  document.getElementById('accelSensorStatus').style.color = 'var(--muted)';
+  document.getElementById('accelDeviceId').disabled = false;
+
+  addAccelLog('⏹ Sensor dihentikan', 'info');
+}
+
+// Alias untuk dipanggil dari showView saat pindah halaman
+function stopAccel() {
+  if (accelTelemetryActive) stopAccelTelemetry();
+}
+
+function stopGPS() {
+  // Placeholder — GPS tidak ada continuous mode di sini
+}
+
+// ─── ADMIN VIEWER ───
+let adminRefreshInterval = null;
+let adminSelectedDevice = '';
+
+async function loadAdminDevices() {
+  const select = document.getElementById('adminDeviceSelect');
+  try {
+    const data = await apiGetAccelDevices();
+    // Clear existing options except first
+    select.innerHTML = '<option value="">-- Pilih Device --</option>';
+    if (data.devices && data.devices.length > 0) {
+      data.devices.forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = id;
+        select.appendChild(opt);
+      });
+      // Re-select previously selected device if still exists
+      if (adminSelectedDevice && data.devices.includes(adminSelectedDevice)) {
+        select.value = adminSelectedDevice;
+      }
+    }
+  } catch (err) {
+    showToast('Gagal memuat daftar device: ' + err.message, 'error');
+  }
+}
+
+function onAdminDeviceChange() {
+  adminSelectedDevice = document.getElementById('adminDeviceSelect').value;
+  if (!adminSelectedDevice) {
+    stopAdminRefresh();
+    document.getElementById('adminStatus').textContent = 'Pilih device terlebih dahulu';
+    document.getElementById('adminStatusDot').textContent = '⏳';
+    document.getElementById('adminX').textContent = '—';
+    document.getElementById('adminY').textContent = '—';
+    document.getElementById('adminZ').textContent = '—';
+    document.getElementById('adminTimestamp').textContent = '—';
+    return;
+  }
+  // Start auto-refresh
+  loadAdminLatest();
+  stopAdminRefresh();
+  adminRefreshInterval = setInterval(loadAdminLatest, 5000);
+}
+
+async function loadAdminLatest() {
+  if (!adminSelectedDevice) return;
+  document.getElementById('adminStatusDot').textContent = '🔄';
+  document.getElementById('adminStatus').textContent = 'Mengambil data...';
+  try {
+    const data = await apiGetAccelLatest(adminSelectedDevice);
+    document.getElementById('adminX').textContent = parseFloat(data.x).toFixed(2);
+    document.getElementById('adminY').textContent = parseFloat(data.y).toFixed(2);
+    document.getElementById('adminZ').textContent = parseFloat(data.z).toFixed(2);
+    document.getElementById('adminTimestamp').innerHTML =
+      'Last update: <strong>' + new Date(data.t).toLocaleTimeString() + '</strong>';
+    document.getElementById('adminStatusDot').textContent = '🟢';
+    document.getElementById('adminStatus').textContent = 'Online — ' + adminSelectedDevice;
+    document.getElementById('adminStatus').style.color = 'var(--success)';
+  } catch (err) {
+    document.getElementById('adminStatusDot').textContent = '🔴';
+    document.getElementById('adminStatus').textContent = 'Offline / tidak ditemukan';
+    document.getElementById('adminStatus').style.color = 'var(--danger)';
+  }
+}
+
+function stopAdminRefresh() {
+  if (adminRefreshInterval) {
+    clearInterval(adminRefreshInterval);
+    adminRefreshInterval = null;
+  }
+}
+
+function addAccelLog(message, type) {
+  const list = document.getElementById('accelLogList');
+  if (!list) return;
+
+  // Hapus empty message
+  const emptyMsg = list.querySelector('.empty-msg');
+  if (emptyMsg) emptyMsg.remove();
+
+  const item = document.createElement('div');
+  item.className = 'accel-log-item ' + (type || 'info');
+  const time = new Date().toLocaleTimeString('id-ID');
+  item.innerHTML = '<span class="log-time">' + time + '</span> ' + esc(message);
+  list.prepend(item);
+
+  // Batasi jumlah log
+  while (list.children.length > MAX_LOG_ITEMS) {
+    list.removeChild(list.lastChild);
   }
 }
 

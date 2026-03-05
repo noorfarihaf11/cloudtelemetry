@@ -30,6 +30,8 @@ function doGet(e) {
                 return sendSuccess(getGpsMarker(params.device_id));
             case 'sensor/gps/polyline':
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
+            case 'telemetry/accel/latest':
+                return sendSuccess(accelLatest(params.device_id));
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi Dosen')
@@ -55,6 +57,7 @@ function doPost(e) {
             case 'presence/qr/generate': return sendSuccess(generateQRToken(body));
             case 'presence/checkin': return sendSuccess(checkin(body));
             case 'sensor/accel/batch': return sendSuccess(batchAccel(body));
+            case 'telemetry/accel': return sendSuccess(telemetryAccelBatch(body));
             case 'sensor/gps': return sendSuccess(logGPS(body));
             default: return sendError('Unknown endpoint');
         }
@@ -186,6 +189,41 @@ function logGPS(body) {
 
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
 function getGpsPolyline(deviceId, from, to) { return { status: "ok", device_id: deviceId }; }
+
+// ============================================================
+// TELEMETRY ACCEL (POST batch + GET latest)
+// Endpoint format sesuai spesifikasi tugas
+// ============================================================
+
+function telemetryAccelBatch(body) {
+    if (!body.device_id || !body.samples) throw new Error('Missing fields: device_id, samples');
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const batchTs = body.ts || nowISO();
+    
+    body.samples.forEach(s => {
+        sheet.appendRow([body.device_id, s.x, s.y, s.z, s.t, batchTs, nowISO()]);
+    });
+    
+    return { accepted: body.samples.length };
+}
+
+function accelLatest(deviceId) {
+    if (!deviceId) throw new Error('Missing field: device_id');
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const rows = sheet.getDataRange().getValues();
+    
+    for (let i = rows.length - 1; i >= 1; i--) {
+        if (String(rows[i][0]) === String(deviceId)) {
+            return {
+                t: rows[i][4],
+                x: rows[i][1],
+                y: rows[i][2],
+                z: rows[i][3]
+            };
+        }
+    }
+    throw new Error('device_not_found');
+}
 
 // ============================================================
 // 4. HELPER UTILITY

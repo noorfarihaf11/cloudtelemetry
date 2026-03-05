@@ -58,13 +58,37 @@
 
     <!-- MAIN -->
     <div class="container">
-      <!-- VIEW: Role Selection -->
+      <!-- VIEW: Main Menu -->
       <div id="view-role" class="view active">
         <div class="role-hero">
           <h2>Selamat Datang</h2>
           <p>
-            Sistem Presensi QR Dinamis<br />Pilih peran Anda untuk melanjutkan
+            Cloud Telemetry System<br />Pilih fitur untuk melanjutkan
           </p>
+        </div>
+        <div class="role-cards">
+          <div class="role-card mhs" onclick="showView('presensi')">
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </div>
+            <h3>Presensi QR</h3>
+            <p>Absensi kuliah via QR Code</p>
+          </div>
+          <div class="role-card accel" onclick="showView('accel')">
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+            <h3>Accelerometer</h3>
+            <p>Telemetri sensor accelerometer</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Presensi QR — Sub-role Selection -->
+      <div id="view-presensi" class="view">
+        <div class="role-hero">
+          <h2>Presensi QR</h2>
+          <p>Pilih peran Anda untuk melanjutkan</p>
         </div>
         <div class="role-cards">
           <div class="role-card dosen" onclick="showView('dosen')">
@@ -83,6 +107,7 @@
           </div>
         </div>
       </div>
+
 
       <!-- VIEW: Dosen -->
       <div id="view-dosen" class="view">
@@ -203,6 +228,129 @@
         <div id="checkinResult" style="display: none"></div>
 
       </div>
+
+      <!-- VIEW: Accelerometer — Sub-role Selection -->
+      <div id="view-accel" class="view">
+        <div class="role-hero">
+          <h2>Accelerometer Telemetry</h2>
+          <p>Pilih mode untuk melanjutkan</p>
+        </div>
+        <div class="role-cards">
+          <div class="role-card mhs" onclick="showView('accel-client')">
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </div>
+            <h3>Client</h3>
+            <p>Kirim data sensor ke server</p>
+          </div>
+          <div class="role-card dosen" onclick="showView('accel-admin')">
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+            <h3>Admin</h3>
+            <p>Lihat data terbaru dari server</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Accel Client — Pengirim Data -->
+      <div id="view-accel-client" class="view">
+        <!-- Device Info -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot blue"></span> Device Info
+          </div>
+          <div class="form-group">
+            <label>Device ID</label>
+            <input type="text" id="accelDeviceId" placeholder="contoh: dev-001" />
+          </div>
+        </div>
+
+        <!-- Accelerometer Live -->
+        <div class="card sensor-card">
+          <div class="card-title">
+            <span class="dot green"></span> Accelerometer Live
+            <div class="toggle-switch" id="accelToggle" onclick="toggleAccelTelemetry()">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+          <div class="sensor-status" id="accelSensorStatus">Sensor belum aktif</div>
+          <div class="sensor-data-grid">
+            <div class="data-badge">
+              <span class="data-label">X</span>
+              <span class="data-value" id="accelX">—</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Y</span>
+              <span class="data-value" id="accelY">—</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Z</span>
+              <span class="data-value" id="accelZ">—</span>
+            </div>
+          </div>
+          <div class="sensor-footer" id="accelBatchInfo">
+            Batch dikirim setiap <strong>3 detik</strong>
+          </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot red"></span> Activity Log
+          </div>
+          <div class="accel-log-list" id="accelLogList">
+            <div class="empty-msg">Belum ada aktivitas.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Accel Admin — Viewer Data -->
+      <div id="view-accel-admin" class="view">
+        <!-- Device Picker -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot blue"></span> Pilih Device
+          </div>
+          <div class="form-group">
+            <label>Device ID</label>
+            <select id="adminDeviceSelect" class="form-select" onchange="onAdminDeviceChange()">
+              <option value="">-- Pilih Device --</option>
+            </select>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadAdminDevices()" style="margin-top: 8px">
+            🔄 Refresh Daftar Device
+          </button>
+        </div>
+
+        <!-- Status & Data -->
+        <div class="card sensor-card">
+          <div class="card-title">
+            <span class="dot green"></span> Data Terbaru
+            <span class="admin-status" id="adminStatusDot">⏳</span>
+          </div>
+          <div class="sensor-status" id="adminStatus">Pilih device terlebih dahulu</div>
+          <div class="sensor-data-grid">
+            <div class="data-badge">
+              <span class="data-label">X</span>
+              <span class="data-value" id="adminX">—</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Y</span>
+              <span class="data-value" id="adminY">—</span>
+            </div>
+            <div class="data-badge">
+              <span class="data-label">Z</span>
+              <span class="data-value" id="adminZ">—</span>
+            </div>
+          </div>
+          <div class="sensor-footer" id="adminTimestamp">—</div>
+          <div class="sensor-footer" style="margin-top: 4px; font-size: 12px; color: var(--muted)">
+            Auto-refresh setiap <strong>5 detik</strong>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- INSTALL BANNER -->
