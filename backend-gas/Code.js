@@ -26,6 +26,8 @@ function doGet(e) {
         switch (path) {
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
+            case 'presence/list':
+                return sendSuccess(getPresenceList(params.course_id, params.session_id));
             case 'sensor/gps/marker':
                 return sendSuccess(getGpsMarker(params.device_id));
             case 'sensor/gps/polyline':
@@ -144,6 +146,24 @@ function getPresenceStatus(userId, courseId, sessionId) {
         }
     }
     return { status: 'not_checked_in' };
+}
+
+function getPresenceList(courseId, sessionId) {
+    if (!courseId || !sessionId) throw new Error('Missing fields: course_id, session_id');
+    const sheet = getOrCreateSheet(SHEET.PRESENCE);
+    const data = sheet.getDataRange().getValues();
+    const students = [];
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][3] === courseId && data[i][4] === sessionId) {
+            students.push({
+                presence_id: data[i][0],
+                user_id: data[i][1],
+                device_id: data[i][2],
+                ts: data[i][6],
+            });
+        }
+    }
+    return { course_id: courseId, session_id: sessionId, count: students.length, students: students };
 }
 
 // --- FUNGSI AMBIL DATA REAL-TIME ---

@@ -242,25 +242,41 @@ function startPolling() {
 
 async function fetchAttendance() {
   try {
-    const users = await apiGetSessionPresenceData(activeCourseId, activeSessionId);
-    const listEl = document.getElementById('attendanceList');
+    const data = await apiGetSessionPresenceData(activeCourseId, activeSessionId);
     const countEl = document.getElementById('attendanceCount');
+    const bodyEl = document.getElementById('attendanceBody');
 
-    if (!listEl) return;
-    countEl.textContent = users.length;
+    if (!bodyEl) return;
 
-    if (users.length === 0) {
-      listEl.innerHTML = '<div class="empty-msg">Belum ada mahasiswa yang absen.</div>';
+    // data bisa berupa { count, students: [...] } atau array of user_ids
+    const students = data.students || data;
+    const count = data.count !== undefined ? data.count : students.length;
+
+    countEl.innerHTML = '<strong>' + count + '</strong> mahasiswa sudah check-in';
+
+    if (count === 0 || students.length === 0) {
+      bodyEl.innerHTML = '<tr><td colspan="3" class="empty-msg">Belum ada mahasiswa yang check-in.</td></tr>';
     } else {
-      const reversed = [...users].reverse();
-      listEl.innerHTML = reversed.map(uid =>
-        '<div class="attendance-item"><span class="att-dot"></span>' + esc(uid) + '</div>'
-      ).join('');
+      bodyEl.innerHTML = students.map((s, idx) => {
+        const userId = typeof s === 'string' ? s : s.user_id;
+        const ts = (typeof s === 'object' && s.ts)
+          ? new Date(s.ts).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' })
+          : '—';
+        return '<tr>' +
+          '<td>' + (idx + 1) + '</td>' +
+          '<td><strong>' + esc(userId) + '</strong></td>' +
+          '<td>' + ts + '</td>' +
+        '</tr>';
+      }).join('');
     }
   } catch (err) {
-    // Silently fail on polling errors
-    console.warn('Polling error:', err.message);
+    console.warn('Attendance fetch error:', err.message);
   }
+}
+
+// Alias for manual refresh button
+function fetchAttendanceList() {
+  fetchAttendance();
 }
 
 
@@ -408,8 +424,6 @@ async function doCheckin() {
   setLoading('btnCheckin', true);
 
   try {
-    // 1. Mulai tangkap sensor DULUAN (berjalan di background)
-    //    Sambil menunggu, kita juga jalankan check-in API secara paralel
     const accelPromise = captureAccelOnce();
     const gpsPromise = new Promise((resolve) => {
       if (!navigator.geolocation) { resolve(null); return; }
@@ -420,7 +434,6 @@ async function doCheckin() {
       );
     });
 
-    // 2. Check-in ke backend (berjalan PARALEL dengan sensor capture)
     const result = await apiCheckinPresence({
       qr_token: token,
       user_id: userId,
@@ -494,9 +507,13 @@ async function doCheckin() {
 // ═══════════════════════════════════════════════
 
 let accelTelemetryActive = false;
-let accelLatestSample = null;
+let accelSampleBuffer = [];
 let accelBatchInterval = null;
+let accelLastSampleTime = 0;
+let accelChart = null;
 const ACCEL_BATCH_MS = 3000; // 3 detik
+const ACCEL_THROTTLE_MS = 200; // ambil sampel tiap 200ms
+const ACCEL_CHART_MAX = 60; // max data points on chart
 const MAX_LOG_ITEMS = 20;
 
 function toggleAccelTelemetry() {
@@ -542,13 +559,17 @@ function startAccelTelemetry() {
 
 function activateAccelSensor(deviceId) {
   accelTelemetryActive = true;
-  accelLatestSample = null;
+  accelSampleBuffer = [];
+  accelLastSampleTime = 0;
 
   // Toggle UI
   document.getElementById('accelToggle').classList.add('active');
   document.getElementById('accelSensorStatus').textContent = 'Sensor aktif — mengumpulkan data...';
   document.getElementById('accelSensorStatus').style.color = 'var(--success)';
   document.getElementById('accelDeviceId').disabled = true;
+
+  // Init chart
+  initAccelChart();
 
   addAccelLog('✅ Sensor dimulai untuk device: ' + deviceId, 'success');
 
@@ -576,41 +597,48 @@ function handleAccelMotion(event) {
   document.getElementById('accelY').textContent = y;
   document.getElementById('accelZ').textContent = z;
 
-  // Simpan hanya sampel terakhir (akan dikirim 1 per batch)
-  accelLatestSample = {
+  // Throttle: ambil sampel tiap 200ms
+  const now = Date.now();
+  if (now - accelLastSampleTime < ACCEL_THROTTLE_MS) return;
+  accelLastSampleTime = now;
+
+  // Push to buffer
+  accelSampleBuffer.push({
     t: new Date().toISOString(),
-    x: x,
-    y: y,
-    z: z,
-  };
+    x: x, y: y, z: z,
+  });
+
+  // Update chart
+  updateAccelChart(x, y, z);
 }
 
 async function sendAccelBatch(deviceId) {
-  if (!accelLatestSample) {
+  if (accelSampleBuffer.length === 0) {
     addAccelLog('⏳ Tidak ada sample untuk dikirim', 'info');
     return;
   }
 
-  const sample = accelLatestSample;
-  accelLatestSample = null;
+  const samples = [...accelSampleBuffer];
+  accelSampleBuffer = [];
 
   const payload = {
     device_id: deviceId,
     ts: new Date().toISOString(),
-    samples: [sample],
+    samples: samples,
   };
 
   try {
     const result = await apiPostAccelTelemetry(payload);
+    const count = result.accepted || samples.length;
     document.getElementById('accelBatchInfo').innerHTML =
-      'Batch terakhir: <strong>1 sample</strong> — ' +
+      'Batch terakhir: <strong>' + count + ' samples</strong> — ' +
       new Date().toLocaleTimeString('id-ID');
-    addAccelLog('📤 Batch terkirim: 1 sample', 'success');
+    addAccelLog('📤 Batch terkirim: ' + count + ' samples', 'success');
   } catch (err) {
     showToast('Gagal kirim batch: ' + err.message, 'error');
     addAccelLog('❌ Gagal kirim: ' + err.message, 'error');
-    // Kembalikan sample jika gagal
-    if (!accelLatestSample) accelLatestSample = sample;
+    // Kembalikan samples yang gagal ke buffer
+    accelSampleBuffer = samples.concat(accelSampleBuffer);
   }
 }
 
@@ -622,10 +650,16 @@ function stopAccelTelemetry() {
     accelBatchInterval = null;
   }
 
-  // Kirim sampel terakhir jika ada
+  // Kirim sisa buffer terakhir jika ada
   const deviceId = document.getElementById('accelDeviceId').value.trim();
-  if (accelLatestSample && deviceId) {
+  if (accelSampleBuffer.length > 0 && deviceId) {
     sendAccelBatch(deviceId);
+  }
+
+  // Destroy chart
+  if (accelChart) {
+    accelChart.destroy();
+    accelChart = null;
   }
 
   // Toggle UI

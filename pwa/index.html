@@ -36,6 +36,7 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <!-- App Styles -->
     <link rel="stylesheet" href="style.css" />
@@ -291,6 +292,16 @@
           </div>
           <div class="sensor-footer" id="accelBatchInfo">
             Batch dikirim setiap <strong>3 detik</strong>
+          </div>
+        </div>
+
+        <!-- Grafik Accelerometer -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot blue"></span> Grafik Real-time
+          </div>
+          <div class="chart-wrap">
+            <canvas id="accelChart"></canvas>
           </div>
         </div>
 

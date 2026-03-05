@@ -921,3 +921,55 @@ body {
     padding-top: calc(env(safe-area-inset-top) + 12px);
   }
 }
+
+/* ─── ATTENDANCE TABLE (Dosen) ─── */
+.attendance-count {
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.attendance-count strong {
+  color: var(--accent);
+  font-size: 18px;
+}
+.attendance-table-wrap {
+  max-height: 360px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.attendance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.attendance-table th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 10px 12px;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.attendance-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+.attendance-table tr:nth-child(even) td {
+  background: var(--surface2);
+}
+.attendance-table td.empty-msg {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px;
+  font-style: italic;
+}
