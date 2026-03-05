@@ -8,7 +8,7 @@ const API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JX
 
 // BACKEND TELEMETRY ACCEL (root Code.js)
 // GANTI URL ini dengan URL deployment GAS project root (cloudtelemetry)
-const API_TELEMETRY = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
+const API_TELEMETRY = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
 
 
 // Validasi: apakah URL sudah diganti dari placeholder?
