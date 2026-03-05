@@ -734,6 +734,7 @@ function stopGPS() {
 // ─── ADMIN VIEWER ───
 let adminRefreshInterval = null;
 let adminSelectedDevice = '';
+let adminChart = null;
 
 async function loadAdminDevices() {
   const select = document.getElementById('adminDeviceSelect');
@@ -768,8 +769,12 @@ function onAdminDeviceChange() {
     document.getElementById('adminY').textContent = '—';
     document.getElementById('adminZ').textContent = '—';
     document.getElementById('adminTimestamp').textContent = '—';
+    destroyAdminAccelChart();
     return;
   }
+  // Init chart target
+  initAdminAccelChart();
+
   // Start auto-refresh
   loadAdminLatest();
   stopAdminRefresh();
@@ -790,6 +795,9 @@ async function loadAdminLatest() {
     document.getElementById('adminStatusDot').textContent = '🟢';
     document.getElementById('adminStatus').textContent = 'Online — ' + adminSelectedDevice;
     document.getElementById('adminStatus').style.color = 'var(--success)';
+
+    // Update chart
+    updateAdminAccelChart(data.x, data.y, data.z);
   } catch (err) {
     document.getElementById('adminStatusDot').textContent = '🔴';
     document.getElementById('adminStatus').textContent = 'Offline / tidak ditemukan';
@@ -801,6 +809,63 @@ function stopAdminRefresh() {
   if (adminRefreshInterval) {
     clearInterval(adminRefreshInterval);
     adminRefreshInterval = null;
+  }
+}
+
+function initAdminAccelChart() {
+  const ctx = document.getElementById('adminAccelChart');
+  if (!ctx) return;
+  if (adminChart) adminChart.destroy();
+
+  adminChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'X (m/s²)', borderColor: '#ef4444', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Y (m/s²)', borderColor: '#22c55e', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Z (m/s²)', borderColor: '#3b82f6', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+      scales: {
+        x: { display: false },
+        y: { display: true, beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+function updateAdminAccelChart(x, y, z) {
+  if (!adminChart) return;
+  const data = adminChart.data;
+
+  // Add new data
+  data.labels.push('');
+  data.datasets[0].data.push(x);
+  data.datasets[1].data.push(y);
+  data.datasets[2].data.push(z);
+
+  // Keep array size to ACCEL_CHART_MAX items max
+  if (data.labels.length > ACCEL_CHART_MAX) {
+    data.labels.shift();
+    data.datasets[0].data.shift();
+    data.datasets[1].data.shift();
+    data.datasets[2].data.shift();
+  }
+
+  adminChart.update();
+}
+
+function destroyAdminAccelChart() {
+  if (adminChart) {
+    adminChart.destroy();
+    adminChart = null;
   }
 }
 
