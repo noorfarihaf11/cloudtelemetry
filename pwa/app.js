@@ -671,6 +671,57 @@ function stopAccelTelemetry() {
   addAccelLog('⏹ Sensor dihentikan', 'info');
 }
 
+// ─── GRAFIK ACCELEROMETER (Chart.js) ───
+function initAccelChart() {
+  const ctx = document.getElementById('accelChart');
+  if (!ctx) return;
+  if (accelChart) accelChart.destroy();
+
+  accelChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'X (m/s²)', borderColor: '#ef4444', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Y (m/s²)', borderColor: '#22c55e', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Z (m/s²)', borderColor: '#3b82f6', backgroundColor: 'transparent', data: [], borderWidth: 2, pointRadius: 0, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+      scales: {
+        x: { display: false },
+        y: { display: true, beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+function updateAccelChart(x, y, z) {
+  if (!accelChart) return;
+  const data = accelChart.data;
+
+  // Add new data
+  data.labels.push('');
+  data.datasets[0].data.push(x);
+  data.datasets[1].data.push(y);
+  data.datasets[2].data.push(z);
+
+  // Keep array size to ACCEL_CHART_MAX items max
+  if (data.labels.length > ACCEL_CHART_MAX) {
+    data.labels.shift();
+    data.datasets[0].data.shift();
+    data.datasets[1].data.shift();
+    data.datasets[2].data.shift();
+  }
+
+  accelChart.update();
+}
+
 // Alias untuk dipanggil dari showView saat pindah halaman
 function stopAccel() {
   if (accelTelemetryActive) stopAccelTelemetry();
