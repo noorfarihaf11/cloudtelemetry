@@ -108,23 +108,6 @@
             </div>
 
           </div>
-
-          <!-- SECTION: SYSTEM INFO -->
-          <section class="system-info">
-            <h2>Tentang Sistem</h2>
-            <p>
-              Cloud Telemetry System adalah sistem monitoring berbasis cloud yang
-              digunakan untuk mengelola dan memantau data dari berbagai modul seperti
-              presensi QR Code, telemetri sensor accelerometer, dan pelacakan lokasi
-              menggunakan GPS secara real-time.
-            </p>
-
-            <p>
-              Sistem ini dirancang untuk mengintegrasikan perangkat IoT dengan cloud
-              sehingga data dapat dipantau melalui dashboard berbasis web secara efisien.
-            </p>
-          </section>
-
         </div>
       </div>
 
@@ -134,7 +117,7 @@
           <h2>Presensi QR</h2>
           <p>Pilih peran Anda untuk melanjutkan</p>
         </div>
-        <div class="role-cards">
+        <div class="role-cards-center">
           <div class="role-card dosen" onclick="showView('dosen')">
             <div class="icon">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -279,7 +262,7 @@
           <h2>Accelerometer Telemetry</h2>
           <p>Pilih mode untuk melanjutkan</p>
         </div>
-        <div class="role-cards">
+        <div class="role-cards-center">
           <div class="role-card mhs" onclick="showView('accel-client')">
             <div class="icon">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -446,11 +429,6 @@
     <!-- App Scripts -->
     <script src="api.js"></script>
     <script src="app.js"></script>
-
-    <footer class="footer">
-      <p>© 2026 Cloud Telemetry System</p>
-      <p>IoT & Cloud Computing Project</p>
-    </footer>
     
   </body>
 </html>
