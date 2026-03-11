@@ -846,20 +846,20 @@ async function toggleShareGps() {
         });
 
       // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
-        const data = await apiGet("telemetry/gps/latest");
+       const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
         
         if (data) {
-          otherUsersLayerGps.clearLayers();
+          otherUsersLayerGps.clearLayers(); // Bersihkan marker lama
           Object.keys(data).forEach(key => {
-            if (key !== getDeviceId()) {
+            if (key !== getDeviceId()) { // Pastikan bukan diri sendiri
               const friend = data[key];
-              // Pastikan data lat dan lng terbaca sebagai angka
+              // Ubah ke format angka (Float)
               const fLat = parseFloat(friend.lat);
               const fLng = parseFloat(friend.lng);
               
               if (!isNaN(fLat) && !isNaN(fLng)) {
                 L.marker([fLat, fLng]).addTo(otherUsersLayerGps)
-                 .bindPopup(`Teman ID: <b>${key}</b><br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+                 .bindPopup(`ID Teman: <b>${key}</b><br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
               }
             }
           });
