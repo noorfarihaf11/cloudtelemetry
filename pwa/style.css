@@ -30,11 +30,8 @@
 }
 
 body {
-  font-family:
-    "Plus Jakarta Sans",
-    -apple-system,
-    sans-serif;
-  background: var(--bg);
+  font-family: "Plus Jakarta Sans",-apple-system,sans-serif;
+  background: linear-gradient(180deg,#f8fafc,#eef2f7);
   color: var(--text);
   min-height: 100vh;
   min-height: 100dvh;
@@ -42,7 +39,6 @@ body {
   flex-direction: column;
   align-items: center;
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: contain;
 }
 
 /* ─── HEADER ─── */
@@ -103,8 +99,8 @@ body {
 /* ─── CONTAINER ─── */
 .container {
   width: 100%;
-  max-width: 480px;
-  padding: 24px 16px 100px;
+  max-width: 900px;
+  padding: 40px 20px 100px;
   flex: 1;
 }
 
@@ -144,35 +140,36 @@ body {
 }
 .role-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 24px;
 }
 .role-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px 16px;
+  padding: 32px 20px;
   text-align: center;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: 0.25s ease;
   box-shadow: var(--shadow);
 }
 .role-card:hover {
+  transform: translateY(-6px);
   border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
 }
 .role-card:active {
   transform: scale(0.97);
 }
 .role-card .icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 14px;
+  margin: 0 auto 16px;
 }
 .role-card.dosen .icon {
   background: rgba(67, 97, 238, 0.1);
@@ -853,7 +850,7 @@ body {
 }
 
 /* ─── RESPONSIVE ─── */
-@media (max-width: 480px) {
+@media (max-width: 700px) {
   .role-cards {
     grid-template-columns: 1fr;
   }
@@ -863,6 +860,9 @@ body {
   .header .btn-back {
     padding: 6px 10px;
     font-size: 12px;
+  }
+    .container {
+    padding:30px 16px 100px;
   }
 }
 
@@ -977,4 +977,22 @@ body {
 transform: translateY(-4px);
 box-shadow: 0 10px 20px rgba(0,0,0,0.1);
 transition: 0.2s;
+}
+.system-info{
+  margin-top:50px;
+  max-width:720px;
+  text-align:center;
+  margin-left:auto;
+  margin-right:auto;
+  line-height:1.8;
+}
+
+.system-info h2{
+  font-size:22px;
+  margin-bottom:10px;
+}
+
+.system-info p{
+  font-size:14px;
+  color:var(--muted);
 }
