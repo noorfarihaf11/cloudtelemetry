@@ -847,7 +847,7 @@ async function toggleShareGps() {
 
         // 2. Tarik lokasi semua teman
         // API_TELEMETRY diambil dari file api.js yang sudah diload sebelumnya
-        const res = await fetch(`${API_TELEMETRY}?path=telemetry/gps/latest`);
+        const res = await fetch(`${API_BASE}?path=telemetry/gps/latest`);
         const json = await res.json();
         
         if (json.ok && json.data) {

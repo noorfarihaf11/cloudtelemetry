@@ -24,6 +24,8 @@ function doGet(e) {
         const params = e ? e.parameter : {};
 
         switch (path) {
+                case 'telemetry/gps/latest': 
+        return sendSuccess(getLatestGPS());
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
             case 'presence/list':
@@ -206,9 +208,26 @@ function logGPS(body) {
     sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO()]);
     return { recorded: true };
 }
-
+function getLatestGPS() {
+    const sheet = getOrCreateSheet(SHEET.GPS);
+    const data = sheet.getDataRange().getValues();
+    let allUsers = {};
+    
+    for (let i = 1; i < data.length; i++) {
+        const deviceId = data[i][0];
+        const lat = data[i][1];
+        const lng = data[i][2];
+        const ts = data[i][5]; 
+        
+        if (deviceId && lat && lng) {
+            allUsers[deviceId] = { lat: lat, lng: lng, ts: ts };
+        }
+    }
+    return allUsers; 
+}
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
 function getGpsPolyline(deviceId, from, to) { return { status: "ok", device_id: deviceId }; }
+
 
 // ============================================================
 // TELEMETRY ACCEL (POST batch + GET latest)
