@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'presensi-qr-v9';
+const CACHE_NAME = 'presensi-qr-v15';
 const STATIC_ASSETS = [
   './',
   './index.html',
