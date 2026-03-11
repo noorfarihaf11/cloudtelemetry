@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Modul GPS & Rute</title>
+  
+  <link rel="stylesheet" href="style.css">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    #map { width: 100%; height: 60vh; border-radius: 14px; z-index: 1; margin-top: 16px; border: 1px solid var(--border); }
+    .status-text { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <button class="btn-back visible" onclick="window.location.href='index.html'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Kembali
+    </button>
+    <h1>Modul GPS & Rute</h1>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="card-title"><span class="dot blue"></span> Live Location Tracker</div>
+      <p style="font-size: 12px; margin-bottom: 12px; color: var(--muted);">Device ID: <strong id="devIdDisplay">-</strong></p>
+      
+      <button id="btnShare" class="btn btn-primary" onclick="toggleShare()">🟢 Mulai Share Live Loc</button>
+      <div id="status" class="status-text">Mencari sinyal GPS... (Izinkan akses lokasi di browser)</div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="api.js"></script> <script>
+    // 1. Ambil atau Buat Device ID (Seragam dengan app.js)
+    let deviceId = localStorage.getItem('device_id');
+    if (!deviceId) {
+      deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+      localStorage.setItem('device_id', deviceId);
+    }
+    document.getElementById('devIdDisplay').innerText = deviceId;
+
+    // 2. Setup Variabel Peta
+    let map, myMarker, routeLayer, otherUsersLayer;
+    let myLoc = null;
+    let isSharing = false;
+    let shareInterval = null;
+
+    // 3. Inisialisasi Peta
+    function initMap() {
+      map = L.map("map").setView([-7.2575, 112.7521], 13);
+      otherUsersLayer = L.layerGroup().addTo(map);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      // Fitur Klik Peta untuk Rute (OSRM API)
+      let destinationPin = null;
+      map.on("click", async (e) => {
+        if (!myLoc) return alert("Tunggu sampai lokasimu terdeteksi ya!");
+
+        if (destinationPin) map.removeLayer(destinationPin);
+        if (routeLayer) map.removeLayer(routeLayer);
+
+        destinationPin = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map).bindPopup("Menghitung rute...").openPopup();
+
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${myLoc.lng},${myLoc.lat};${e.latlng.lng},${e.latlng.lat}?overview=full&geometries=geojson`;
+
+        try {
+          const res = await fetch(osrmUrl);
+          const data = await res.json();
+          if (data.routes && data.routes.length > 0) {
+            const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            routeLayer = L.polyline(routeCoords, { color: "#4361ee", weight: 5 }).addTo(map);
+            const distanceKm = (data.routes[0].distance / 1000).toFixed(2);
+            destinationPin.setPopupContent(`Jarak jalan: ${distanceKm} km`).openPopup();
+          }
+        } catch (err) {
+          destinationPin.setPopupContent("Gagal menghitung rute.");
+        }
+      });
+
+      // Fitur Baca GPS Realtime
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            myLoc = { lat: latitude, lng: longitude };
+            document.getElementById('status').innerText = `Akurasi: ${Math.round(accuracy)} meter`;
+
+            if (!myMarker) {
+              myMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Kamu di sini!").openPopup();
+              map.setView([latitude, longitude], 15);
+            } else {
+              myMarker.setLatLng([latitude, longitude]);
+            }
+          },
+          (err) => document.getElementById('status').innerText = "Error: Izinkan akses lokasi di browser!",
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      }
+    }
+
+    // 4. Fitur Share Live Loc ke Server
+    async function toggleShare() {
+      const btn = document.getElementById('btnShare');
+      isSharing = !isSharing;
+
+      if (isSharing) {
+        btn.innerText = "🔴 Berhenti Share Live Loc";
+        btn.classList.replace("btn-primary", "btn-danger");
+        
+        shareInterval = setInterval(async () => {
+          if (!myLoc) return;
+          try {
+            // Log GPS Sendiri
+            await fetch(`${API_TELEMETRY}?path=sensor/gps`, {
+              method: "POST", body: JSON.stringify({ device_id: deviceId, lat: myLoc.lat, lng: myLoc.lng, accuracy: 10 })
+            });
+
+            // Tarik GPS Teman (Jika endpoint all users tersedia)
+            const res = await fetch(`${API_TELEMETRY}?path=telemetry/gps/latest`);
+            const json = await res.json();
+            
+            if (json.ok && json.data) {
+               otherUsersLayer.clearLayers(); 
+               Object.keys(json.data).forEach(key => {
+                 if (key !== deviceId) { 
+                   const friend = json.data[key];
+                   L.marker([friend.lat, friend.lng]).addTo(otherUsersLayer)
+                    .bindPopup(`ID: ${key}<br>Time: ${new Date(friend.ts).toLocaleTimeString()}`);
+                 }
+               });
+            }
+          } catch (e) { console.log("Gagal sync GPS"); }
+        }, 5000);
+      } else {
+        btn.innerText = "🟢 Mulai Share Live Loc";
+        btn.classList.replace("btn-danger", "btn-primary");
+        clearInterval(shareInterval);
+      }
+    }
+
+    // Mulai Peta saat halaman dimuat
+    window.onload = initMap;
+  </script>
+</body>
+</html>

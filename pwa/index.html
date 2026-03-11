@@ -37,6 +37,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- App Styles -->
     <link rel="stylesheet" href="style.css" />
@@ -81,6 +83,13 @@
             </div>
             <h3>Accelerometer</h3>
             <p>Telemetri sensor accelerometer</p>
+          </div>
+        <div class="role-card gps" onclick="showView('gps')">
+            <div class="icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <h3>GPS & Peta</h3>
+            <p>Live location & tracking rute</p>
           </div>
         </div>
       </div>
@@ -371,7 +380,17 @@
           </div>
         </div>
       </div>
+      <div id="view-gps" class="view">
+        <div class="card">
+          <div class="card-title"><span class="dot blue"></span> Live Location Tracker</div>
+          <p style="font-size: 12px; margin-bottom: 12px; color: var(--muted);">Device ID: <strong id="gpsDeviceIdDisplay">-</strong></p>
+          
+          <button id="btnShareGps" class="btn btn-primary" onclick="toggleShareGps()">🟢 Mulai Share Live Loc</button>
+          <div id="gpsStatus" style="font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center;">Menunggu akses lokasi GPS...</div>
+        </div>
 
+        <div id="map" style="width: 100%; height: 60vh; border-radius: 14px; z-index: 1; border: 1px solid var(--border);"></div>
+      </div>
     </div>
 
     <!-- INSTALL BANNER -->

@@ -61,6 +61,10 @@ function showView(name) {
   if (name === 'accel-admin') {
     loadAdminDevices();
   }
+  if (name === 'gps') {
+    document.getElementById('gpsDeviceIdDisplay').textContent = getDeviceId();
+    initMapGps(); // Nyalakan peta saat menu GPS dibuka
+  }
 }
 
 // ─── TOAST ───
@@ -727,8 +731,142 @@ function stopAccel() {
   if (accelTelemetryActive) stopAccelTelemetry();
 }
 
+// ═══════════════════════════════════════════════
+//  MODUL 3: GPS & RUTE PETA (LEAFLET + OSRM)
+// ═══════════════════════════════════════════════
+let mapGps = null;
+let myMarkerGps = null;
+let routeLayerGps = null;
+let otherUsersLayerGps = null;
+let myLocGps = null;
+let isSharingGps = false;
+let shareGpsInterval = null;
+let gpsWatchId = null;
+let destinationPin = null;
+
+function initMapGps() {
+  // Jika map sudah pernah dirender, cukup update ukurannya agar tidak nge-bug (hitam)
+  if (mapGps) {
+    setTimeout(() => mapGps.invalidateSize(), 100);
+    startGpsTracking();
+    return;
+  }
+
+  // Render awal map
+  mapGps = L.map("map").setView([-7.2575, 112.7521], 13);
+  otherUsersLayerGps = L.layerGroup().addTo(mapGps);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(mapGps);
+
+  // Fitur Klik Peta untuk Buat Rute
+  mapGps.on("click", async (e) => {
+    if (!myLocGps) {
+      showToast("Tunggu sampai lokasimu terdeteksi dulu ya!", "warn");
+      return;
+    }
+
+    if (destinationPin) mapGps.removeLayer(destinationPin);
+    if (routeLayerGps) mapGps.removeLayer(routeLayerGps);
+
+    destinationPin = L.marker([e.latlng.lat, e.latlng.lng]).addTo(mapGps).bindPopup("Menghitung rute...").openPopup();
+
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${myLocGps.lng},${myLocGps.lat};${e.latlng.lng},${e.latlng.lat}?overview=full&geometries=geojson`;
+
+    try {
+      const res = await fetch(osrmUrl);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLayerGps = L.polyline(routeCoords, { color: "#4361ee", weight: 5 }).addTo(mapGps);
+        destinationPin.setPopupContent(`Jarak: ${(data.routes[0].distance / 1000).toFixed(2)} km`).openPopup();
+      }
+    } catch (err) {
+      destinationPin.setPopupContent("Gagal menghitung rute.");
+    }
+  });
+
+  setTimeout(() => mapGps.invalidateSize(), 100);
+  startGpsTracking();
+}
+
+function startGpsTracking() {
+  if ("geolocation" in navigator) {
+    if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    
+    gpsWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        myLocGps = { lat: latitude, lng: longitude };
+        document.getElementById('gpsStatus').innerText = `Akurasi GPS: ${Math.round(accuracy)} meter`;
+
+        if (!myMarkerGps) {
+          myMarkerGps = L.marker([latitude, longitude]).addTo(mapGps).bindPopup("Kamu di sini!").openPopup();
+          mapGps.setView([latitude, longitude], 15);
+        } else {
+          myMarkerGps.setLatLng([latitude, longitude]);
+        }
+      },
+      (err) => document.getElementById('gpsStatus').innerText = "Izinkan akses lokasi GPS di browser!",
+      { enableHighAccuracy: true, maximumAge: 0 }
+    );
+  }
+}
+
+// Berhentikan pelacakan saat pindah ke menu lain
 function stopGPS() {
-  // Placeholder — GPS tidak ada continuous mode di sini
+  if (gpsWatchId) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  if (isSharingGps) {
+    toggleShareGps(); // Matikan fitur share secara otomatis jika keluar dari halaman
+  }
+}
+
+async function toggleShareGps() {
+  const btn = document.getElementById('btnShareGps');
+  isSharingGps = !isSharingGps;
+
+  if (isSharingGps) {
+    btn.innerText = "🔴 Berhenti Share Live Loc";
+    btn.classList.replace("btn-primary", "btn-danger");
+    showToast("Live Location dinyalakan", "success");
+
+    shareGpsInterval = setInterval(async () => {
+      if (!myLocGps) return;
+      try {
+        // 1. Post lokasi kita sendiri menggunakan apiLogGPS bawaan
+        await apiLogGPS({
+            device_id: getDeviceId(),
+            lat: myLocGps.lat,
+            lng: myLocGps.lng,
+            accuracy: 10
+        });
+
+        // 2. Tarik lokasi semua teman
+        // API_TELEMETRY diambil dari file api.js yang sudah diload sebelumnya
+        const res = await fetch(`${API_TELEMETRY}?path=telemetry/gps/latest`);
+        const json = await res.json();
+        
+        if (json.ok && json.data) {
+          otherUsersLayerGps.clearLayers();
+          Object.keys(json.data).forEach(key => {
+            if (key !== getDeviceId()) {
+              const friend = json.data[key];
+              L.marker([friend.lat, friend.lng]).addTo(otherUsersLayerGps)
+               .bindPopup(`ID: ${key}<br>Update: ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+            }
+          });
+        }
+      } catch (e) { console.log("Gagal sync GPS"); }
+    }, 5000);
+  } else {
+    btn.innerText = "🟢 Mulai Share Live Loc";
+    btn.classList.replace("btn-danger", "btn-primary");
+    if (shareGpsInterval) clearInterval(shareGpsInterval);
+  }
 }
 
 // ─── ADMIN VIEWER ───
