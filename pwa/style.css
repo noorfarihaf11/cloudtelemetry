@@ -973,3 +973,8 @@ body {
   padding: 24px;
   font-style: italic;
 }
+.role-card:hover{
+transform: translateY(-4px);
+box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+transition: 0.2s;
+}

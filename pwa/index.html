@@ -55,42 +55,76 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         Kembali
       </button>
-      <div class="logo">QR</div>
+      <div class="logo">CT</div>
       <h1>Cloud Telemetry System</h1>
     </div>
 
-    <!-- MAIN -->
-    <div class="container">
-      <!-- VIEW: Main Menu -->
-      <div id="view-role" class="view active">
-        <div class="role-hero">
-          <h2>Selamat Datang</h2>
-          <p>
-            Cloud Telemetry System<br />Pilih fitur untuk melanjutkan
-          </p>
-        </div>
-        <div class="role-cards">
-          <div class="role-card mhs" onclick="showView('presensi')">
-            <div class="icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            </div>
-            <h3>Presensi QR</h3>
-            <p>Absensi kuliah via QR Code</p>
+      <!-- MAIN -->
+      <div class="container">
+        <!-- VIEW: Main Menu -->
+        <div id="view-role" class="view active">
+
+          <div class="role-hero">
+            <h2>Selamat Datang</h2>
+            <p>
+              Cloud Telemetry System<br />Pilih fitur untuk melanjutkan
+            </p>
           </div>
-          <div class="role-card accel" onclick="showView('accel')">
-            <div class="icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+
+          <div class="role-cards">
+
+            <div class="role-card mhs" onclick="showView('presensi')">
+              <div class="icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </div>
+              <h3>Presensi QR</h3>
+              <p>Absensi kuliah via QR Code</p>
             </div>
-            <h3>Accelerometer</h3>
-            <p>Telemetri sensor accelerometer</p>
-          </div>
-        <div class="role-card gps" onclick="showView('gps')">
-            <div class="icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+
+            <div class="role-card accel" onclick="showView('accel')">
+              <div class="icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+              </div>
+              <h3>Accelerometer</h3>
+              <p>Sensor motion telemetry</p>
             </div>
-            <h3>GPS & Peta</h3>
-            <p>Live location & tracking rute</p>
+
+            <div class="role-card gps" onclick="showView('gps')">
+              <div class="icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <h3>GPS Telemetry</h3>
+              <p>Real-time location tracking</p>
+            </div>
+
           </div>
+
+          <!-- SECTION: SYSTEM INFO -->
+          <section class="system-info">
+            <h2>Tentang Sistem</h2>
+            <p>
+              Cloud Telemetry System adalah sistem monitoring berbasis cloud yang
+              digunakan untuk mengelola dan memantau data dari berbagai modul seperti
+              presensi QR Code, telemetri sensor accelerometer, dan pelacakan lokasi
+              menggunakan GPS secara real-time.
+            </p>
+
+            <p>
+              Sistem ini dirancang untuk mengintegrasikan perangkat IoT dengan cloud
+              sehingga data dapat dipantau melalui dashboard berbasis web secara efisien.
+            </p>
+          </section>
+
         </div>
       </div>
 
@@ -399,7 +433,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
       </div>
       <div class="install-text">
-        <strong>Install Presensi QR</strong>
+        <strong>Install Cloud Telemetry System</strong>
         <span>Tambahkan ke layar utama untuk akses cepat</span>
       </div>
       <button class="btn-install" onclick="installApp()">Install</button>
@@ -412,5 +446,11 @@
     <!-- App Scripts -->
     <script src="api.js"></script>
     <script src="app.js"></script>
+
+    <footer class="footer">
+      <p>© 2026 Cloud Telemetry System</p>
+      <p>IoT & Cloud Computing Project</p>
+    </footer>
+    
   </body>
 </html>
