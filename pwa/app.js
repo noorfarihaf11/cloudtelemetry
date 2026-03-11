@@ -845,18 +845,22 @@ async function toggleShareGps() {
             accuracy: 10
         });
 
-        // 2. Tarik lokasi semua teman
-        // API_TELEMETRY diambil dari file api.js yang sudah diload sebelumnya
-        const res = await fetch(`${API_BASE}?path=telemetry/gps/latest`);
-        const json = await res.json();
+      // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
+        const data = await apiGet("telemetry/gps/latest");
         
-        if (json.ok && json.data) {
+        if (data) {
           otherUsersLayerGps.clearLayers();
-          Object.keys(json.data).forEach(key => {
+          Object.keys(data).forEach(key => {
             if (key !== getDeviceId()) {
-              const friend = json.data[key];
-              L.marker([friend.lat, friend.lng]).addTo(otherUsersLayerGps)
-               .bindPopup(`ID: ${key}<br>Update: ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+              const friend = data[key];
+              // Pastikan data lat dan lng terbaca sebagai angka
+              const fLat = parseFloat(friend.lat);
+              const fLng = parseFloat(friend.lng);
+              
+              if (!isNaN(fLat) && !isNaN(fLng)) {
+                L.marker([fLat, fLng]).addTo(otherUsersLayerGps)
+                 .bindPopup(`Teman ID: <b>${key}</b><br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+              }
             }
           });
         }
