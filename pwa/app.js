@@ -12,6 +12,8 @@ let html5QrScanner = null;
 let isPresenceRunning = false;
 let activeCourseId = '';
 let activeSessionId = '';
+let pollingInterval = null;        
+const POLLING_INTERVAL_MS = 3000;
 
 // ─── DEVICE ID ───
 function getDeviceId() {

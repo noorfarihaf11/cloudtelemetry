@@ -111,6 +111,7 @@ async function apiGetSessionPresenceData(courseId, sessionId) {
   return apiGet("presence/list", {
     course_id: courseId,
     session_id: sessionId,
+    _t: Date.now() // 👈 TAMBAHKAN BARIS INI (Trik Anti-Cache)
   });
 }
 
