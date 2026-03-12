@@ -258,7 +258,7 @@ async function fetchAttendance() {
     const students = data.students || data;
     const count = data.count !== undefined ? data.count : students.length;
 
-    countEl.innerHTML = '<strong>' + count + '</strong> mahasiswa sudah check-in';
+   
 
     if (count === 0 || students.length === 0) {
       bodyEl.innerHTML = '<tr><td colspan="3" class="empty-msg">Belum ada mahasiswa yang check-in.</td></tr>';
