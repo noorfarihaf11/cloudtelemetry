@@ -738,7 +738,7 @@ let mapGps = null;
 let myMarkerGps = null;
 let routeLayerGps = null;
 let otherUsersLayerGps = null;
-let historyLayerGps = null; // 👈 Ini variabel baru untuk garis putus-putus
+let historyLayerGps = null; // Tambahan untuk garis riwayat putus-putus
 let myLocGps = null;
 let isSharingGps = false;
 let shareGpsInterval = null;
@@ -838,7 +838,7 @@ async function toggleShareGps() {
     shareGpsInterval = setInterval(async () => {
       if (!myLocGps) return;
       try {
-        // 1. Post lokasi kita sendiri
+        // 1. Post lokasi kita sendiri menggunakan apiLogGPS bawaan
         await apiLogGPS({
             device_id: getDeviceId(),
             lat: myLocGps.lat,
@@ -846,7 +846,7 @@ async function toggleShareGps() {
             accuracy: 10
         });
 
-      // 2. Tarik lokasi semua teman (Bawaan api.js yang anti-CORS)
+      // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
        const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
         
         if (data) {
@@ -854,6 +854,7 @@ async function toggleShareGps() {
           Object.keys(data).forEach(key => {
             if (key !== getDeviceId()) { // Pastikan bukan diri sendiri
               const friend = data[key];
+              // Ubah ke format angka (Float)
               const fLat = parseFloat(friend.lat);
               const fLng = parseFloat(friend.lng);
               

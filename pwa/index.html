@@ -12,20 +12,16 @@
       content="Sistem Presensi QR Code Dinamis — Generate & Scan QR untuk absensi kuliah + Telemetri Sensor"
     />
 
-    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4361ee" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Presensi QR" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
 
-    <!-- Manifest -->
     <link rel="manifest" href="manifest.json" />
 
-    <!-- Favicon -->
     <link rel="icon" type="image/png" href="icons/icon-192.png" />
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,23 +29,19 @@
       rel="stylesheet"
     />
 
-    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- App Styles -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- OFFLINE BAR -->
     <div class="offline-bar" id="offlineBar">
       <span class="offline-dot"></span> Anda sedang offline
     </div>
 
-    <!-- HEADER -->
     <div class="header">
       <button class="btn-back" id="btnBack" onclick="showView('role')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -59,9 +51,7 @@
       <h1>Cloud Telemetry System</h1>
     </div>
 
-      <!-- MAIN -->
       <div class="container">
-        <!-- VIEW: Main Menu -->
         <div id="view-role" class="view active">
 
           <div class="role-hero">
@@ -111,7 +101,6 @@
         </div>
       </div>
 
-      <!-- VIEW: Presensi QR — Sub-role Selection -->
       <div id="view-presensi" class="view">
         <div class="role-hero">
           <h2>Presensi QR</h2>
@@ -136,9 +125,7 @@
       </div>
 
 
-      <!-- VIEW: Dosen -->
       <div id="view-dosen" class="view">
-        <!-- Setup Card -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Pengaturan Presensi
@@ -169,35 +156,61 @@
           </button>
         </div>
 
-        <!-- QR Result -->
-        <div id="qrResult" class="card" style="display: none">
-          <div class="card-title">
-            <span class="dot green"></span> QR Code Aktif
+        <div id="qrResult" style="display: none">
+          
+          <div class="card">
+            <div class="card-title">
+              <span class="dot green"></span> QR Code Aktif
+            </div>
+            <div class="qr-center">
+              <div class="qr-wrapper"><div id="qrcode"></div></div>
+            </div>
+            <div class="qr-info">
+              <div class="expires" id="qrExpiry"></div>
+              <span class="token-text" id="qrTokenText"></span>
+              <div class="timer-bar"><div class="fill" id="timerFill"></div></div>
+            </div>
+            <div style="margin-top: 14px; display: flex; gap: 8px">
+              <button
+                class="btn btn-outline btn-sm"
+                style="flex: 1"
+                onclick="copyToken()"
+              >
+                Salin Token
+              </button>
+            </div>
           </div>
-          <div class="qr-center">
-            <div class="qr-wrapper"><div id="qrcode"></div></div>
-          </div>
-          <div class="qr-info">
-            <div class="expires" id="qrExpiry"></div>
-            <span class="token-text" id="qrTokenText"></span>
-            <div class="timer-bar"><div class="fill" id="timerFill"></div></div>
-          </div>
-          <div style="margin-top: 14px; display: flex; gap: 8px">
-            <button
-              class="btn btn-outline btn-sm"
-              style="flex: 1"
-              onclick="copyToken()"
-            >
-              Salin Token
+
+          <div class="card">
+            <div class="card-title">
+              <span class="dot blue"></span> Sudah Absen
+            </div>
+            <div class="attendance-count" id="attendanceCount">
+              <strong>0</strong> mahasiswa sudah check-in
+            </div>
+            <div class="attendance-table-wrap">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>NIM</th>
+                    <th>Waktu</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceBody">
+                  <tr><td colspan="3" class="empty-msg">Belum ada mahasiswa yang check-in.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top: 14px; width: 100%;" onclick="fetchAttendanceList()">
+              🔄 Refresh Data
             </button>
           </div>
+
+        </div>
         </div>
 
-      </div>
-
-      <!-- VIEW: Mahasiswa -->
       <div id="view-mahasiswa" class="view">
-        <!-- Identitas -->
         <div class="card">
           <div class="card-title">
             <span class="dot green"></span> Identitas Mahasiswa
@@ -211,13 +224,11 @@
           </div>
         </div>
 
-        <!-- Scanner -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Scan QR Token
           </div>
 
-          <!-- Camera notice (shown on error) -->
           <div class="cam-notice" id="camNotice">
             <strong>Kamera live tidak tersedia</strong>
             Akses kamera mungkin diblokir oleh browser.<br />
@@ -251,12 +262,10 @@
           </button>
         </div>
 
-        <!-- Checkin Result -->
         <div id="checkinResult" style="display: none"></div>
 
       </div>
 
-      <!-- VIEW: Accelerometer — Sub-role Selection -->
       <div id="view-accel" class="view">
         <div class="role-hero">
           <h2>Accelerometer Telemetry</h2>
@@ -280,9 +289,7 @@
         </div>
       </div>
 
-      <!-- VIEW: Accel Client — Pengirim Data -->
       <div id="view-accel-client" class="view">
-        <!-- Device Info -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Device Info
@@ -293,7 +300,6 @@
           </div>
         </div>
 
-        <!-- Accelerometer Live -->
         <div class="card sensor-card">
           <div class="card-title">
             <span class="dot green"></span> Accelerometer Live
@@ -321,7 +327,6 @@
           </div>
         </div>
 
-        <!-- Grafik Accelerometer -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Grafik Real-time
@@ -331,7 +336,6 @@
           </div>
         </div>
 
-        <!-- Activity Log -->
         <div class="card">
           <div class="card-title">
             <span class="dot red"></span> Activity Log
@@ -342,9 +346,7 @@
         </div>
       </div>
 
-      <!-- VIEW: Accel Admin — Viewer Data -->
       <div id="view-accel-admin" class="view">
-        <!-- Device Picker -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Pilih Device
@@ -360,7 +362,6 @@
           </button>
         </div>
 
-        <!-- Status & Data -->
         <div class="card sensor-card">
           <div class="card-title">
             <span class="dot green"></span> Data Terbaru
@@ -387,7 +388,6 @@
           </div>
         </div>
 
-        <!-- Grafik Accelerometer Admin -->
         <div class="card">
           <div class="card-title">
             <span class="dot blue"></span> Grafik Real-time
@@ -410,7 +410,6 @@
       </div>
     </div>
 
-    <!-- INSTALL BANNER -->
     <div class="install-banner" id="installBanner">
       <div class="install-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -423,10 +422,8 @@
       <button class="btn-dismiss" onclick="hideInstallBanner()">&#10005;</button>
     </div>
 
-    <!-- Toast -->
     <div class="toast-box" id="toastBox"></div>
 
-    <!-- App Scripts -->
     <script src="api.js"></script>
     <script src="app.js"></script>
     
