@@ -24,8 +24,10 @@ function doGet(e) {
         const params = e ? e.parameter : {};
 
         switch (path) {
-                case 'telemetry/gps/latest': 
-        return sendSuccess(getLatestGPS());
+             case 'telemetry/gps/history':
+                return sendSuccess(getGpsHistory(params.device_id, params.limit));
+             case 'telemetry/gps/latest': 
+                return sendSuccess(getLatestGPS());
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
             case 'presence/list':
@@ -226,7 +228,35 @@ function getLatestGPS() {
     return allUsers; 
 }
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
-function getGpsPolyline(deviceId, from, to) { return { status: "ok", device_id: deviceId }; }
+function getGpsHistory(deviceId, limit) {
+    if (!deviceId) throw new Error('Missing field: device_id');
+
+    const sheet = getOrCreateSheet(SHEET.GPS);
+    const data = sheet.getDataRange().getValues();
+    let items = [];
+    
+    // Default ambil 50 titik terakhir jika parameter limit tidak diisi
+    const maxData = limit ? parseInt(limit) : 50; 
+
+    // Looping dari baris paling bawah (data terbaru) ke atas
+    for (let i = data.length - 1; i >= 1; i--) {
+        if (data[i][0] === deviceId) {
+            items.push({
+                ts: data[i][5],   // Timestamp dari HP
+                lat: data[i][1],  // Latitude
+                lng: data[i][2]   // Longitude
+            });
+
+            if (items.length >= maxData) break; 
+        }
+    }
+
+    // Balik array agar titik awal di depan (untuk menggambar garis)
+    return {
+        device_id: deviceId,
+        items: items.reverse()
+    };
+}
 
 
 // ============================================================

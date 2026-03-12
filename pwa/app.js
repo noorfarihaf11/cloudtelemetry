@@ -738,6 +738,7 @@ let mapGps = null;
 let myMarkerGps = null;
 let routeLayerGps = null;
 let otherUsersLayerGps = null;
+let historyLayerGps = null; // 👈 Ini variabel baru untuk garis putus-putus
 let myLocGps = null;
 let isSharingGps = false;
 let shareGpsInterval = null;
@@ -837,7 +838,7 @@ async function toggleShareGps() {
     shareGpsInterval = setInterval(async () => {
       if (!myLocGps) return;
       try {
-        // 1. Post lokasi kita sendiri menggunakan apiLogGPS bawaan
+        // 1. Post lokasi kita sendiri
         await apiLogGPS({
             device_id: getDeviceId(),
             lat: myLocGps.lat,
@@ -845,7 +846,7 @@ async function toggleShareGps() {
             accuracy: 10
         });
 
-      // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
+      // 2. Tarik lokasi semua teman (Bawaan api.js yang anti-CORS)
        const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
         
         if (data) {
@@ -853,7 +854,6 @@ async function toggleShareGps() {
           Object.keys(data).forEach(key => {
             if (key !== getDeviceId()) { // Pastikan bukan diri sendiri
               const friend = data[key];
-              // Ubah ke format angka (Float)
               const fLat = parseFloat(friend.lat);
               const fLng = parseFloat(friend.lng);
               
@@ -864,6 +864,27 @@ async function toggleShareGps() {
             }
           });
         }
+
+        // 3. Tarik Riwayat Perjalanan & Gambar Garis Putus-putus
+        try {
+          const history = await apiGet("telemetry/gps/history", { device_id: getDeviceId(), limit: 50 });
+          if (history && history.items && history.items.length > 1) {
+            // Hapus garis riwayat yang lama sebelum menggambar yang baru
+            if (historyLayerGps) mapGps.removeLayer(historyLayerGps);
+            
+            // Ambil titik-titiknya
+            const historyCoords = history.items.map(item => [parseFloat(item.lat), parseFloat(item.lng)]);
+            
+            // Gambar rute dengan garis PUTUS-PUTUS (menggunakan dashArray)
+            historyLayerGps = L.polyline(historyCoords, {
+              color: "#ff4757", // Warna merah
+              weight: 4,
+              dashArray: "10, 10", // 👈 Efek putus-putus
+              opacity: 0.8
+            }).addTo(mapGps);
+          }
+        } catch (err) { console.log("Gagal memuat riwayat perjalanan"); }
+
       } catch (e) { console.log("Gagal sync GPS"); }
     }, 5000);
   } else {
