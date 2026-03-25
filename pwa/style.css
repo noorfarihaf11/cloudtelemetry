@@ -942,6 +942,16 @@ body {
   color: var(--accent);
   font-size: 18px;
 }
+.attendance-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.attendance-title > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .attendance-table-wrap {
   max-height: 360px;
   overflow-y: auto;
@@ -981,20 +991,30 @@ body {
   padding: 24px;
   font-style: italic;
 }
-.attendance-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-.attendance-clear-btn {
-  width: auto;
-  min-width: 160px;
-}
-.attendance-note {
-  margin-top: 12px;
-  font-size: 12px;
+.attendance-icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
   color: var(--muted);
-  line-height: 1.6;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+.attendance-icon-btn:hover {
+  color: var(--danger);
+  border-color: rgba(229, 72, 77, 0.18);
+  background: rgba(229, 72, 77, 0.06);
+}
+.attendance-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--muted);
+  border-color: var(--border);
+  background: var(--surface2);
 }
 .role-card:hover{
 transform: translateY(-4px);

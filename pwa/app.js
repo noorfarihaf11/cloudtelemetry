@@ -135,14 +135,14 @@ function hideAllAttendanceItems() {
     .filter(Boolean);
 
   if (idsToHide.length === 0) {
-    showToast('Tidak ada data absen yang sedang tampil.', 'info');
+    showToast('Belum ada data absensi.', 'info');
     return;
   }
 
   const hiddenIds = getHiddenAttendanceIds();
   saveHiddenAttendanceIds(hiddenIds.concat(idsToHide));
   fetchAttendance();
-  showToast('Semua data absen yang tampil sudah disembunyikan dari frontend.', 'info');
+  showToast('Daftar absensi dibersihkan.', 'info');
 }
 
 
@@ -310,21 +310,11 @@ async function fetchAttendance() {
     }
 
     if (countEl) {
-      if (totalCount === 0) {
-        countEl.innerHTML = 'Belum ada mahasiswa yang scan.';
-      } else if (visibleStudents.length === 0) {
-        countEl.innerHTML = 'Semua <strong>' + totalCount + '</strong> data scan sedang disembunyikan di frontend.';
-      } else {
-        countEl.innerHTML =
-          'Menampilkan <strong>' + visibleStudents.length + '</strong> dari <strong>' + totalCount + '</strong> mahasiswa yang sudah scan.';
-      }
+      countEl.innerHTML = '<strong>' + visibleStudents.length + '</strong> mahasiswa hadir';
     }
 
     if (totalCount === 0 || visibleStudents.length === 0) {
-      const emptyMessage = totalCount === 0
-        ? 'Belum ada mahasiswa yang check-in.'
-        : 'Semua data scan sudah Anda sembunyikan dari tampilan frontend.';
-      bodyEl.innerHTML = '<tr><td colspan="3" class="empty-msg">' + emptyMessage + '</td></tr>';
+      bodyEl.innerHTML = '<tr><td colspan="3" class="empty-msg">Belum ada mahasiswa yang check-in.</td></tr>';
     } else {
       bodyEl.innerHTML = visibleStudents.map((s, idx) => {
         const userId = typeof s === 'string' ? s : s.user_id;

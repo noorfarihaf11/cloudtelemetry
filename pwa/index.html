@@ -180,23 +180,28 @@
           </div>
 
           <div class="card">
-            <div class="card-title">
-              <span class="dot blue"></span> Yang Sudah Absen
-            </div>
-
-            <div class="attendance-count" id="attendanceCount">
-              Belum ada mahasiswa yang absen.
-            </div>
-
-            <div class="attendance-actions">
+            <div class="card-title attendance-title">
+              <span><span class="dot blue"></span> Yang Sudah Absen</span>
               <button
-                class="btn btn-outline btn-sm attendance-clear-btn"
+                class="attendance-icon-btn"
                 id="btnHideAttendance"
                 onclick="hideAllAttendanceItems()"
                 type="button"
+                title="Bersihkan daftar"
+                aria-label="Bersihkan daftar"
               >
-                Hapus Tampilan
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                  <path d="M10 11v6"></path>
+                  <path d="M14 11v6"></path>
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                </svg>
               </button>
+            </div>
+
+            <div class="attendance-count" id="attendanceCount">
+              <strong>0</strong> mahasiswa hadir
             </div>
 
             <div class="attendance-table-wrap">
@@ -215,10 +220,6 @@
                 </tbody>
               </table>
             </div>
-
-            <p class="attendance-note">
-              Tombol hapus hanya menyembunyikan data di tampilan dosen. Data asli di spreadsheet tetap aman.
-            </p>
           </div>
         </div>
         </div>
