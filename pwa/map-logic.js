@@ -256,11 +256,12 @@ function toggleLiveLoc() {
     btn.style.color = "#fff";
     btn.innerText = "Live Loc (Nyala)";
   } else {
+    const stopTs = new Date().toISOString();
     btn.style.background = "#747d8c";
     btn.style.color = "#fff";
     btn.innerText = "Live Loc (Mati)";
     otherUsersLayer.clearLayers();
-    apiStopLiveGps(getMyDeviceId()).catch(function (err) {
+    apiStopLiveGps(getMyDeviceId(), stopTs).catch(function (err) {
       console.warn("Gagal mematikan status live loc:", err);
     });
   }

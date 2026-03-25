@@ -161,10 +161,10 @@ async function apiLogGPS(data) {
   });
 }
 
-async function apiStopLiveGps(deviceId) {
+async function apiStopLiveGps(deviceId, ts) {
   return apiPost("sensor/gps/live/stop", {
     device_id: deviceId,
-    ts: new Date().toISOString(),
+    ts: ts || new Date().toISOString(),
   });
 }
 

@@ -68,7 +68,7 @@ function doPost(e) {
             case 'sensor/accel/batch': return sendSuccess(batchAccel(body));
             case 'telemetry/accel': return sendSuccess(telemetryAccelBatch(body));
             case 'sensor/gps': return sendSuccess(logGPS(body));
-            case 'sensor/gps/live/stop': return sendSuccess(stopLiveGPS(body.device_id));
+            case 'sensor/gps/live/stop': return sendSuccess(stopLiveGPS(body));
             default: return sendError('Unknown endpoint');
         }
     } catch (err) {
@@ -241,19 +241,34 @@ function upsertLiveGPS(body, isActive) {
     const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
     const data = sheet.getDataRange().getValues();
     const nowIso = nowISO();
+    const eventTs = body.ts || nowIso;
+    const eventTsMs = parseOptionalDate(eventTs) || parseOptionalDate(nowIso) || Date.now();
     const rowValues = [
         normalizedDeviceId,
         hasGpsValue(body.lat) ? body.lat : '',
         hasGpsValue(body.lng) ? body.lng : '',
         body.accuracy || '',
         body.altitude || '',
-        body.ts || nowIso,
+        eventTs,
         nowIso,
         isActive ? 'true' : 'false'
     ];
 
     for (let i = data.length - 1; i >= 1; i--) {
         if (normalizeDeviceId(data[i][0]) === normalizedDeviceId) {
+            const existingEventTsMs = parseOptionalDate(data[i][5]) || parseOptionalDate(data[i][6]) || 0;
+            const shouldOverwrite =
+                eventTsMs > existingEventTsMs ||
+                (eventTsMs === existingEventTsMs && !isActive);
+
+            if (!shouldOverwrite) {
+                return {
+                    device_id: normalizedDeviceId,
+                    active: String(data[i][7]).toLowerCase() === 'true',
+                    ignored: true
+                };
+            }
+
             sheet.getRange(i + 1, 1, 1, rowValues.length).setValues([rowValues]);
             return { device_id: normalizedDeviceId, active: isActive };
         }
@@ -308,8 +323,18 @@ function getLatestGPS(activeWithinSec) {
     return allUsers; 
 }
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
-function stopLiveGPS(deviceId) {
-    return upsertLiveGPS({ device_id: normalizeDeviceId(deviceId) }, false);
+function stopLiveGPS(bodyOrDeviceId) {
+    if (bodyOrDeviceId && typeof bodyOrDeviceId === 'object') {
+        return upsertLiveGPS({
+            device_id: normalizeDeviceId(bodyOrDeviceId.device_id),
+            ts: bodyOrDeviceId.ts || nowISO()
+        }, false);
+    }
+
+    return upsertLiveGPS({
+        device_id: normalizeDeviceId(bodyOrDeviceId),
+        ts: nowISO()
+    }, false);
 }
 function getGpsHistory(deviceId, limit, from, to) {
     const normalizedDeviceId = normalizeDeviceId(deviceId);

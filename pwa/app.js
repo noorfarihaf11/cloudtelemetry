@@ -1037,7 +1037,7 @@ async function toggleShareGps() {
     gpsShareStartedAt = null;
     btn.classList.replace("btn-danger", "btn-primary");
     if (shareGpsInterval) clearInterval(shareGpsInterval);
-    apiStopLiveGps(getDeviceId()).catch(err => console.warn("Gagal mematikan status live loc:", err));
+    apiStopLiveGps(getDeviceId(), new Date().toISOString()).catch(err => console.warn("Gagal mematikan status live loc:", err));
     if (historyLayerGps) {
       mapGps.removeLayer(historyLayerGps);
       historyLayerGps = null;
