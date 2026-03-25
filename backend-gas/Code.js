@@ -6,6 +6,7 @@ const SHEET = {
     PRESENCE: 'presence',
     ACCEL: 'accel',
     GPS: 'gps',
+    GPS_LIVE: 'gps_live',
 };
 
 const HEADERS = {
@@ -13,6 +14,7 @@ const HEADERS = {
     [SHEET.PRESENCE]: ['presence_id', 'user_id', 'device_id', 'course_id', 'session_id', 'qr_token', 'ts', 'recorded_at'],
     [SHEET.ACCEL]: ['device_id', 'x', 'y', 'z', 'sample_ts', 'batch_ts', 'recorded_at'],
     [SHEET.GPS]: ['device_id', 'lat', 'lng', 'accuracy', 'altitude', 'ts', 'recorded_at', 'mode'],
+    [SHEET.GPS_LIVE]: ['device_id', 'lat', 'lng', 'accuracy', 'altitude', 'ts', 'recorded_at', 'is_active'],
 };
 
 // WAKTU TOKEN: 30 DETIK
@@ -66,6 +68,7 @@ function doPost(e) {
             case 'sensor/accel/batch': return sendSuccess(batchAccel(body));
             case 'telemetry/accel': return sendSuccess(telemetryAccelBatch(body));
             case 'sensor/gps': return sendSuccess(logGPS(body));
+            case 'sensor/gps/live/stop': return sendSuccess(stopLiveGPS(body.device_id));
             default: return sendError('Unknown endpoint');
         }
     } catch (err) {
@@ -227,32 +230,65 @@ function gpsModeIncludes(modeValue, targetMode) {
         .includes(targetMode);
 }
 
+function upsertLiveGPS(body, isActive) {
+    if (!body.device_id) throw new Error('Missing field: device_id');
+
+    const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
+    const data = sheet.getDataRange().getValues();
+    const nowIso = nowISO();
+    const rowValues = [
+        body.device_id,
+        hasGpsValue(body.lat) ? body.lat : '',
+        hasGpsValue(body.lng) ? body.lng : '',
+        body.accuracy || '',
+        body.altitude || '',
+        body.ts || nowIso,
+        nowIso,
+        isActive ? 'true' : 'false'
+    ];
+
+    for (let i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][0]) === String(body.device_id)) {
+            sheet.getRange(i + 1, 1, 1, rowValues.length).setValues([rowValues]);
+            return { device_id: body.device_id, active: isActive };
+        }
+    }
+
+    sheet.appendRow(rowValues);
+    return { device_id: body.device_id, active: isActive };
+}
+
 function logGPS(body) {
     if (!body.device_id || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.GPS);
     
     sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
+
+    if (gpsModeIncludes(body.mode, 'live_loc')) {
+        upsertLiveGPS(body, true);
+    }
+
     return { recorded: true };
 }
 function getLatestGPS(activeWithinSec) {
-    const sheet = getOrCreateSheet(SHEET.GPS);
+    const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
     const data = sheet.getDataRange().getValues();
     let allUsers = {};
     const nowMs = Date.now();
     const activeWindowMs = parsePositiveInt(activeWithinSec, LIVE_LOC_ACTIVE_WINDOW_SEC) * 1000;
     
-    for (let i = data.length - 1; i >= 1; i--) {
+    for (let i = 1; i < data.length; i++) {
         const deviceId = data[i][0];
         const lat = data[i][1];
         const lng = data[i][2];
         const ts = data[i][5]; 
         const recordedAt = data[i][6];
-        const mode = data[i][7];
+        const isActive = String(data[i][7]).toLowerCase() === 'true';
         const seenAt = recordedAt || ts;
         
         if (!deviceId || allUsers[deviceId]) continue;
+        if (!isActive) continue;
         if (!seenAt) continue;
-        if (!gpsModeIncludes(mode, 'live_loc')) continue;
 
         const seenAtMs = new Date(seenAt).getTime();
         if (!Number.isFinite(seenAtMs) || (nowMs - seenAtMs) > activeWindowMs) continue;
@@ -264,6 +300,9 @@ function getLatestGPS(activeWithinSec) {
     return allUsers; 
 }
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
+function stopLiveGPS(deviceId) {
+    return upsertLiveGPS({ device_id: deviceId }, false);
+}
 function getGpsHistory(deviceId, limit, from, to) {
     if (!deviceId) throw new Error('Missing field: device_id');
 

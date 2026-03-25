@@ -161,6 +161,13 @@ async function apiLogGPS(data) {
   });
 }
 
+async function apiStopLiveGps(deviceId) {
+  return apiPost("sensor/gps/live/stop", {
+    device_id: deviceId,
+    ts: new Date().toISOString(),
+  });
+}
+
 /**
  * Get latest GPS marker for device
  * @param {string} deviceId

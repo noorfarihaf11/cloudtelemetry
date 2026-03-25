@@ -249,6 +249,7 @@ function toggleLiveLoc() {
     btn.style.background = '#747d8c'; 
     btn.innerText = "📡 Live Loc (Mati)";
     otherUsersLayer.clearLayers(); // Bersihkan peta dari marker teman
+    apiStopLiveGps(getMyDeviceId()).catch(err => console.warn("Gagal mematikan status live loc:", err));
   }
   manageSyncInterval();
 }
