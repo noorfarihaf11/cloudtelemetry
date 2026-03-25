@@ -211,6 +211,10 @@ function hasGpsValue(value) {
     return value !== '' && value !== null && value !== undefined;
 }
 
+function normalizeDeviceId(value) {
+    return String(value === null || value === undefined ? '' : value).trim();
+}
+
 function parsePositiveInt(value, fallbackValue) {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackValue;
@@ -231,13 +235,14 @@ function gpsModeIncludes(modeValue, targetMode) {
 }
 
 function upsertLiveGPS(body, isActive) {
-    if (!body.device_id) throw new Error('Missing field: device_id');
+    const normalizedDeviceId = normalizeDeviceId(body.device_id);
+    if (!normalizedDeviceId) throw new Error('Missing field: device_id');
 
     const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
     const data = sheet.getDataRange().getValues();
     const nowIso = nowISO();
     const rowValues = [
-        body.device_id,
+        normalizedDeviceId,
         hasGpsValue(body.lat) ? body.lat : '',
         hasGpsValue(body.lng) ? body.lng : '',
         body.accuracy || '',
@@ -248,24 +253,25 @@ function upsertLiveGPS(body, isActive) {
     ];
 
     for (let i = data.length - 1; i >= 1; i--) {
-        if (String(data[i][0]) === String(body.device_id)) {
+        if (normalizeDeviceId(data[i][0]) === normalizedDeviceId) {
             sheet.getRange(i + 1, 1, 1, rowValues.length).setValues([rowValues]);
-            return { device_id: body.device_id, active: isActive };
+            return { device_id: normalizedDeviceId, active: isActive };
         }
     }
 
     sheet.appendRow(rowValues);
-    return { device_id: body.device_id, active: isActive };
+    return { device_id: normalizedDeviceId, active: isActive };
 }
 
 function logGPS(body) {
-    if (!body.device_id || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
+    const normalizedDeviceId = normalizeDeviceId(body.device_id);
+    if (!normalizedDeviceId || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.GPS);
     
-    sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
+    sheet.appendRow([normalizedDeviceId, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
 
     if (gpsModeIncludes(body.mode, 'live_loc')) {
-        upsertLiveGPS(body, true);
+        upsertLiveGPS(Object.assign({}, body, { device_id: normalizedDeviceId }), true);
     }
 
     return { recorded: true };
@@ -274,11 +280,12 @@ function getLatestGPS(activeWithinSec) {
     const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
     const data = sheet.getDataRange().getValues();
     let allUsers = {};
+    let processedDevices = {};
     const nowMs = Date.now();
     const activeWindowMs = parsePositiveInt(activeWithinSec, LIVE_LOC_ACTIVE_WINDOW_SEC) * 1000;
     
-    for (let i = 1; i < data.length; i++) {
-        const deviceId = data[i][0];
+    for (let i = data.length - 1; i >= 1; i--) {
+        const deviceId = normalizeDeviceId(data[i][0]);
         const lat = data[i][1];
         const lng = data[i][2];
         const ts = data[i][5]; 
@@ -286,7 +293,8 @@ function getLatestGPS(activeWithinSec) {
         const isActive = String(data[i][7]).toLowerCase() === 'true';
         const seenAt = recordedAt || ts;
         
-        if (!deviceId || allUsers[deviceId]) continue;
+        if (!deviceId || processedDevices[deviceId]) continue;
+        processedDevices[deviceId] = true;
         if (!isActive) continue;
         if (!seenAt) continue;
 
@@ -301,10 +309,11 @@ function getLatestGPS(activeWithinSec) {
 }
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
 function stopLiveGPS(deviceId) {
-    return upsertLiveGPS({ device_id: deviceId }, false);
+    return upsertLiveGPS({ device_id: normalizeDeviceId(deviceId) }, false);
 }
 function getGpsHistory(deviceId, limit, from, to) {
-    if (!deviceId) throw new Error('Missing field: device_id');
+    const normalizedDeviceId = normalizeDeviceId(deviceId);
+    if (!normalizedDeviceId) throw new Error('Missing field: device_id');
 
     const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
@@ -317,7 +326,7 @@ function getGpsHistory(deviceId, limit, from, to) {
 
     // Looping dari baris paling bawah (data terbaru) ke atas
     for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][0] === deviceId) {
+        if (normalizeDeviceId(data[i][0]) === normalizedDeviceId) {
             const pointTs = data[i][5] || data[i][6];
             const pointMs = parseOptionalDate(pointTs);
 
@@ -336,7 +345,7 @@ function getGpsHistory(deviceId, limit, from, to) {
 
     // Balik array agar titik awal di depan (untuk menggambar garis)
     return {
-        device_id: deviceId,
+        device_id: normalizedDeviceId,
         items: items.reverse()
     };
 }
