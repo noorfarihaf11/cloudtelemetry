@@ -141,26 +141,25 @@ function manageSyncInterval() {
 async function syncDataWithBackend() {
   if (!myCurrentLoc) return;
   const myId = getMyDeviceId();
-
-  // --- SOLUSI: Fungsi sakti untuk memperbaiki masalah koma (,) dari Google Sheets ---
   const parseKordinat = (angka) => parseFloat(String(angka).replace(',', '.'));
 
-  try {
-    // 1. Selalu laporkan lokasi kita saat ini ke Google Apps Script
-    await apiLogGPS({
-      device_id: myId, lat: myCurrentLoc.lat, lng: myCurrentLoc.lng, accuracy: 10
-    });
+  // 1. KIRIM DATA (Fire and Forget)
+  // Kita hilangkan 'await' dan pisahkan try/catch-nya. 
+  // Biarkan proses kirim berjalan di latar belakang tanpa memblokir proses tarik data.
+  apiLogGPS({
+    device_id: myId, lat: myCurrentLoc.lat, lng: myCurrentLoc.lng, accuracy: 10
+  }).catch(err => console.log("Log GPS jalan, abaikan error bawaan Google:", err));
 
-    // 2. LIVE LOC: Tarik posisi teman dan render jadi Marker
+  // 2. TARIK DATA
+  try {
+    // --- FITUR LIVE LOC ---
     if (isLiveLocActive) {
       const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
       if (data) {
         otherUsersLayer.clearLayers(); 
         Object.keys(data).forEach(key => {
-          if (key !== myId) { // Jangan render diri sendiri
+          if (key !== myId) {
             const friend = data[key];
-            
-            // Gunakan fungsi parseKordinat di sini
             const fLat = parseKordinat(friend.lat);
             const fLng = parseKordinat(friend.lng);
             
@@ -171,22 +170,24 @@ async function syncDataWithBackend() {
                 iconSize: [15, 15]
               });
 
-              L.marker([fLat, fLng], {icon: friendIcon})
-               .addTo(otherUsersLayer)
-               .bindPopup(`<b>Teman:</b> ${key}<br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+              L.marker([fLat, fLng], {
+                icon: friendIcon,
+                zIndexOffset: 1000 // 👈 Paksa marker teman agar selalu berada DI ATAS marker biru
+              }).addTo(otherUsersLayer)
+                .bindPopup(`<b>Teman:</b> ${key}<br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
             }
           }
         });
       }
     }
 
-    // 3. TRACKING: Tarik histori perjalanan dan render Garis Putus-putus
+    // --- FITUR TRACKING ---
     if (isTrackingActive) {
-      const history = await apiGet("telemetry/gps/history", { device_id: myId, limit: 50 });
+      // 👈 Tambahkan _t: Date.now() untuk membobol sistem Cache bawaan Google
+      const history = await apiGet("telemetry/gps/history", { device_id: myId, limit: 50, _t: Date.now() });
       if (history && history.items && history.items.length > 1) {
         if (historyLayer) map.removeLayer(historyLayer);
         
-        // Gunakan fungsi parseKordinat di dalam mapping array
         const historyCoords = history.items.map(item => [
           parseKordinat(item.lat), 
           parseKordinat(item.lng)
@@ -201,7 +202,7 @@ async function syncDataWithBackend() {
       }
     }
   } catch (error) {
-    console.warn("Gagal sync dengan backend GAS:", error);
+    console.warn("Gagal menarik data dari GAS:", error);
   }
 }
 
