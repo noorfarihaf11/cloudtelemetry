@@ -142,13 +142,16 @@ async function syncDataWithBackend() {
   if (!myCurrentLoc) return;
   const myId = getMyDeviceId();
 
+  // --- SOLUSI: Fungsi sakti untuk memperbaiki masalah koma (,) dari Google Sheets ---
+  const parseKordinat = (angka) => parseFloat(String(angka).replace(',', '.'));
+
   try {
     // 1. Selalu laporkan lokasi kita saat ini ke Google Apps Script
     await apiLogGPS({
       device_id: myId, lat: myCurrentLoc.lat, lng: myCurrentLoc.lng, accuracy: 10
     });
 
-    // 2. Jika LIVE LOC aktif, tarik posisi teman dan render jadi Marker
+    // 2. LIVE LOC: Tarik posisi teman dan render jadi Marker
     if (isLiveLocActive) {
       const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
       if (data) {
@@ -156,11 +159,12 @@ async function syncDataWithBackend() {
         Object.keys(data).forEach(key => {
           if (key !== myId) { // Jangan render diri sendiri
             const friend = data[key];
-            const fLat = parseFloat(friend.lat);
-            const fLng = parseFloat(friend.lng);
+            
+            // Gunakan fungsi parseKordinat di sini
+            const fLat = parseKordinat(friend.lat);
+            const fLng = parseKordinat(friend.lng);
             
             if (!isNaN(fLat) && !isNaN(fLng)) {
-              // Ikon bulat hijau untuk teman
               const friendIcon = L.divIcon({
                 className: 'custom-div-icon',
                 html: `<div style="background-color:#2ed573; width:15px; height:15px; border-radius:50%; border:2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
@@ -176,17 +180,22 @@ async function syncDataWithBackend() {
       }
     }
 
-    // 3. Jika TRACKING aktif, tarik histori perjalanan dan render Garis Putus-putus
+    // 3. TRACKING: Tarik histori perjalanan dan render Garis Putus-putus
     if (isTrackingActive) {
       const history = await apiGet("telemetry/gps/history", { device_id: myId, limit: 50 });
       if (history && history.items && history.items.length > 1) {
         if (historyLayer) map.removeLayer(historyLayer);
         
-        const historyCoords = history.items.map(item => [parseFloat(item.lat), parseFloat(item.lng)]);
+        // Gunakan fungsi parseKordinat di dalam mapping array
+        const historyCoords = history.items.map(item => [
+          parseKordinat(item.lat), 
+          parseKordinat(item.lng)
+        ]);
+        
         historyLayer = L.polyline(historyCoords, {
-          color: "#ff4757",     // Warna Merah
+          color: "#ff4757",     
           weight: 4,
-          dashArray: "10, 10",  // 👈 Rahasia garis putus-putusnya!
+          dashArray: "10, 10",  
           opacity: 0.8
         }).addTo(map);
       }
