@@ -15,6 +15,9 @@ let syncInterval = null;
 let otherUsersLayer = L.layerGroup(); // Layer khusus teman
 let historyLayer = null;              // Layer garis putus-putus
 
+const GPS_DEPLOYMENT_ERROR =
+  "Live Loc gagal: endpoint GPS backend belum aktif. Deploy ulang backend-gas.";
+
 // --- FUNGSI MENDAPATKAN DEVICE ID ---
 // Agar tidak tertukar dengan user lain di database
 function getMyDeviceId() {
@@ -138,6 +141,19 @@ function manageSyncInterval() {
   }
 }
 
+function setGpsStatusText(message) {
+  const statusEl = document.getElementById('gps-status');
+  if (statusEl) statusEl.innerText = message;
+}
+
+function handleGpsSyncError(error) {
+  const message = String(error && error.message ? error.message : error);
+  if (message.includes('telemetry/gps/latest') || message.includes('telemetry/gps/history')) {
+    setGpsStatusText(GPS_DEPLOYMENT_ERROR);
+  }
+  console.warn("Gagal menarik data dari GAS:", error);
+}
+
 async function syncDataWithBackend() {
   if (!myCurrentLoc) return;
   const myId = getMyDeviceId();
@@ -154,7 +170,7 @@ async function syncDataWithBackend() {
   try {
     // --- FITUR LIVE LOC ---
     if (isLiveLocActive) {
-      const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
+      const data = await apiGetGpsLatest();
       if (data) {
         otherUsersLayer.clearLayers(); 
         Object.keys(data).forEach(key => {
@@ -184,7 +200,7 @@ async function syncDataWithBackend() {
     // --- FITUR TRACKING ---
     if (isTrackingActive) {
       // 👈 Tambahkan _t: Date.now() untuk membobol sistem Cache bawaan Google
-      const history = await apiGet("telemetry/gps/history", { device_id: myId, limit: 50, _t: Date.now() });
+      const history = await apiGetGpsHistory(myId, 50);
       if (history && history.items && history.items.length > 1) {
         if (historyLayer) map.removeLayer(historyLayer);
         
@@ -202,7 +218,7 @@ async function syncDataWithBackend() {
       }
     }
   } catch (error) {
-    console.warn("Gagal menarik data dari GAS:", error);
+    handleGpsSyncError(error);
   }
 }
 

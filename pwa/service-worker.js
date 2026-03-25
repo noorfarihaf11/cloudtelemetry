@@ -1,11 +1,13 @@
-
-const CACHE_NAME = 'presensi-qr-v18';
+const CACHE_NAME = 'presensi-qr-v19';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css',
   './api.js',
   './app.js',
+  './map-view.html',
+  './map-style.css',
+  './map-logic.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -14,7 +16,6 @@ const STATIC_ASSETS = [
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
 ];
 
-// ─── INSTALL: Cache static assets ───
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -25,7 +26,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ─── ACTIVATE: Clean old caches ───
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -42,11 +42,16 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ─── FETCH: Cache-first for static, Network-first for API ───
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET') return;
 
-  // API calls → Network first, no cache
+  const url = new URL(event.request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAppShellRequest =
+    isSameOrigin &&
+    (event.request.mode === 'navigate' ||
+      ['document', 'script', 'style'].includes(event.request.destination));
+
   if (url.hostname.includes('script.google.com')) {
     event.respondWith(
       fetch(event.request).catch((err) => {
@@ -62,14 +67,35 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets → Cache first, fallback to network
+  if (isAppShellRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            if (event.request.mode === 'navigate') return caches.match('./index.html');
+            return Response.error();
+          })
+        )
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
 
       return fetch(event.request).then((response) => {
-        // Cache successful responses for future use
-        if (response.ok && event.request.method === 'GET') {
+        if (response.ok && isSameOrigin) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, clone);
@@ -77,10 +103,10 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
+        return Response.error();
       });
     })
   );

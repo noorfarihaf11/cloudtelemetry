@@ -34,11 +34,24 @@ async function apiGet(path, params = {}) {
   const res = await fetch(url.toString(), {
     method: "GET",
     redirect: "follow",
+    cache: "no-store",
   });
 
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
+}
+
+function ensureGpsEndpointPayload(path, data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Invalid response from ${path}`);
+  }
+
+  if (data.status === "ok" && typeof data.message === "string") {
+    throw new Error(`Endpoint ${path} belum tersedia di deployment GAS aktif. Deploy ulang backend-gas.`);
+  }
+
+  return data;
 }
 
 /**
@@ -153,6 +166,26 @@ async function apiLogGPS(data) {
  */
 async function apiGetGpsMarker(deviceId) {
   return apiGet("sensor/gps/marker", { device_id: deviceId });
+}
+
+async function apiGetGpsLatest() {
+  const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
+  return ensureGpsEndpointPayload("telemetry/gps/latest", data);
+}
+
+async function apiGetGpsHistory(deviceId, limit = 50) {
+  const data = await apiGet("telemetry/gps/history", {
+    device_id: deviceId,
+    limit,
+    _t: Date.now(),
+  });
+  const payload = ensureGpsEndpointPayload("telemetry/gps/history", data);
+
+  if (!Array.isArray(payload.items)) {
+    throw new Error("Invalid response from telemetry/gps/history");
+  }
+
+  return payload;
 }
 
 /**

@@ -203,8 +203,12 @@ function batchAccel(body) {
     return { saved: body.data.length };
 }
 
+function hasGpsValue(value) {
+    return value !== '' && value !== null && value !== undefined;
+}
+
 function logGPS(body) {
-    if (!body.device_id || !body.lat || !body.lng) throw new Error('Missing fields');
+    if (!body.device_id || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.GPS);
     
     sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO()]);
@@ -215,14 +219,17 @@ function getLatestGPS() {
     const data = sheet.getDataRange().getValues();
     let allUsers = {};
     
-    for (let i = 1; i < data.length; i++) {
+    for (let i = data.length - 1; i >= 1; i--) {
         const deviceId = data[i][0];
         const lat = data[i][1];
         const lng = data[i][2];
         const ts = data[i][5]; 
+        const recordedAt = data[i][6];
         
-        if (deviceId && lat && lng) {
-            allUsers[deviceId] = { lat: lat, lng: lng, ts: ts };
+        if (!deviceId || allUsers[deviceId]) continue;
+
+        if (hasGpsValue(lat) && hasGpsValue(lng)) {
+            allUsers[deviceId] = { lat: lat, lng: lng, ts: ts, recorded_at: recordedAt };
         }
     }
     return allUsers; 

@@ -746,6 +746,10 @@ let isSharingGps = false;
 let shareGpsInterval = null;
 let gpsWatchId = null;
 let destinationPin = null;
+let gpsShareWarningShown = false;
+
+const GPS_SHARE_DEPLOYMENT_ERROR =
+  "Live Loc gagal: endpoint GPS backend belum aktif. Deploy ulang backend-gas.";
 
 function initMapGps() {
   // Jika map sudah pernah dirender, cukup update ukurannya agar tidak nge-bug (hitam)
@@ -828,6 +832,74 @@ function stopGPS() {
   }
 }
 
+function parseGpsCoord(value) {
+  return parseFloat(String(value).replace(',', '.'));
+}
+
+function setGpsPanelStatus(message) {
+  const statusEl = document.getElementById('gpsStatus');
+  if (statusEl) statusEl.innerText = message;
+}
+
+function handleGpsShareError(error) {
+  const rawMessage = String(error && error.message ? error.message : error);
+  const message =
+    rawMessage.includes('telemetry/gps/latest') || rawMessage.includes('telemetry/gps/history')
+      ? GPS_SHARE_DEPLOYMENT_ERROR
+      : "Gagal sinkron lokasi live.";
+
+  setGpsPanelStatus(message);
+  if (!gpsShareWarningShown) {
+    showToast(message, "error");
+    gpsShareWarningShown = true;
+  }
+  console.warn("GPS sync error:", error);
+}
+
+async function syncSharedGps() {
+  if (!myLocGps) return;
+
+  await apiLogGPS({
+    device_id: getDeviceId(),
+    lat: myLocGps.lat,
+    lng: myLocGps.lng,
+    accuracy: 10
+  });
+
+  const data = await apiGetGpsLatest();
+  otherUsersLayerGps.clearLayers();
+
+  Object.keys(data).forEach(key => {
+    if (key !== getDeviceId()) {
+      const friend = data[key];
+      const fLat = parseGpsCoord(friend.lat);
+      const fLng = parseGpsCoord(friend.lng);
+
+      if (!isNaN(fLat) && !isNaN(fLng)) {
+        L.marker([fLat, fLng]).addTo(otherUsersLayerGps)
+          .bindPopup(`ID Teman: <b>${key}</b><br>â° ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+      }
+    }
+  });
+
+  const history = await apiGetGpsHistory(getDeviceId(), 50);
+  if (history && history.items && history.items.length > 1) {
+    if (historyLayerGps) mapGps.removeLayer(historyLayerGps);
+
+    const historyCoords = history.items.map(item => [
+      parseGpsCoord(item.lat),
+      parseGpsCoord(item.lng)
+    ]);
+
+    historyLayerGps = L.polyline(historyCoords, {
+      color: "#ff4757",
+      weight: 4,
+      dashArray: "10, 10",
+      opacity: 0.8
+    }).addTo(mapGps);
+  }
+}
+
 async function toggleShareGps() {
   const btn = document.getElementById('btnShareGps');
   isSharingGps = !isSharingGps;
@@ -835,7 +907,14 @@ async function toggleShareGps() {
   if (isSharingGps) {
     btn.innerText = "🔴 Berhenti Share Live Loc";
     btn.classList.replace("btn-primary", "btn-danger");
+    gpsShareWarningShown = false;
     showToast("Live Location dinyalakan", "success");
+
+    try {
+      await syncSharedGps();
+    } catch (error) {
+      handleGpsShareError(error);
+    }
 
     shareGpsInterval = setInterval(async () => {
       if (!myLocGps) return;
@@ -849,7 +928,7 @@ async function toggleShareGps() {
         });
 
       // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
-       const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
+       const data = await apiGetGpsLatest();
         
         if (data) {
           otherUsersLayerGps.clearLayers(); // Bersihkan marker lama
@@ -857,8 +936,8 @@ async function toggleShareGps() {
             if (key !== getDeviceId()) { // Pastikan bukan diri sendiri
               const friend = data[key];
               // Ubah ke format angka (Float)
-              const fLat = parseFloat(friend.lat);
-              const fLng = parseFloat(friend.lng);
+              const fLat = parseGpsCoord(friend.lat);
+              const fLng = parseGpsCoord(friend.lng);
               
               if (!isNaN(fLat) && !isNaN(fLng)) {
                 L.marker([fLat, fLng]).addTo(otherUsersLayerGps)
@@ -870,13 +949,13 @@ async function toggleShareGps() {
 
         // 3. Tarik Riwayat Perjalanan & Gambar Garis Putus-putus
         try {
-          const history = await apiGet("telemetry/gps/history", { device_id: getDeviceId(), limit: 50 });
+            const history = await apiGetGpsHistory(getDeviceId(), 50);
           if (history && history.items && history.items.length > 1) {
             // Hapus garis riwayat yang lama sebelum menggambar yang baru
             if (historyLayerGps) mapGps.removeLayer(historyLayerGps);
             
             // Ambil titik-titiknya
-            const historyCoords = history.items.map(item => [parseFloat(item.lat), parseFloat(item.lng)]);
+              const historyCoords = history.items.map(item => [parseGpsCoord(item.lat), parseGpsCoord(item.lng)]);
             
             // Gambar rute dengan garis PUTUS-PUTUS (menggunakan dashArray)
             historyLayerGps = L.polyline(historyCoords, {
@@ -888,7 +967,7 @@ async function toggleShareGps() {
           }
         } catch (err) { console.log("Gagal memuat riwayat perjalanan"); }
 
-      } catch (e) { console.log("Gagal sync GPS"); }
+        } catch (e) { handleGpsShareError(e); }
     }, 5000);
   } else {
     btn.innerText = "🟢 Mulai Share Live Loc";
