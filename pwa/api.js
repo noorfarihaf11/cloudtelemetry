@@ -9,6 +9,7 @@ const API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JX
 // BACKEND TELEMETRY ACCEL (root Code.js)
 // GANTI URL ini dengan URL deployment GAS project root (cloudtelemetry)
 const API_TELEMETRY = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
+const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
 
 
 // Validasi: apakah URL sudah diganti dari placeholder?
@@ -168,15 +169,20 @@ async function apiGetGpsMarker(deviceId) {
   return apiGet("sensor/gps/marker", { device_id: deviceId });
 }
 
-async function apiGetGpsLatest() {
-  const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
+async function apiGetGpsLatest(activeWithinSec = LIVE_LOC_ACTIVE_WINDOW_SEC) {
+  const data = await apiGet("telemetry/gps/latest", {
+    active_within_sec: activeWithinSec,
+    _t: Date.now()
+  });
   return ensureGpsEndpointPayload("telemetry/gps/latest", data);
 }
 
-async function apiGetGpsHistory(deviceId, limit = 50) {
+async function apiGetGpsHistory(deviceId, limit = 50, from, to) {
   const data = await apiGet("telemetry/gps/history", {
     device_id: deviceId,
     limit,
+    from,
+    to,
     _t: Date.now(),
   });
   const payload = ensureGpsEndpointPayload("telemetry/gps/history", data);

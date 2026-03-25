@@ -747,6 +747,7 @@ let shareGpsInterval = null;
 let gpsWatchId = null;
 let destinationPin = null;
 let gpsShareWarningShown = false;
+let gpsShareStartedAt = null;
 
 const GPS_SHARE_DEPLOYMENT_ERROR =
   "Live Loc gagal: endpoint GPS backend belum aktif. Deploy ulang backend-gas.";
@@ -882,7 +883,7 @@ async function syncSharedGps() {
     }
   });
 
-  const history = await apiGetGpsHistory(getDeviceId(), 50);
+  const history = await apiGetGpsHistory(getDeviceId(), 200, gpsShareStartedAt);
   if (history && history.items && history.items.length > 1) {
     if (historyLayerGps) mapGps.removeLayer(historyLayerGps);
 
@@ -897,6 +898,9 @@ async function syncSharedGps() {
       dashArray: "10, 10",
       opacity: 0.8
     }).addTo(mapGps);
+  } else if (historyLayerGps) {
+    mapGps.removeLayer(historyLayerGps);
+    historyLayerGps = null;
   }
 }
 
@@ -908,6 +912,7 @@ async function toggleShareGps() {
     btn.innerText = "🔴 Berhenti Share Live Loc";
     btn.classList.replace("btn-primary", "btn-danger");
     gpsShareWarningShown = false;
+    gpsShareStartedAt = new Date().toISOString();
     showToast("Live Location dinyalakan", "success");
 
     try {
@@ -949,7 +954,7 @@ async function toggleShareGps() {
 
         // 3. Tarik Riwayat Perjalanan & Gambar Garis Putus-putus
         try {
-            const history = await apiGetGpsHistory(getDeviceId(), 50);
+            const history = await apiGetGpsHistory(getDeviceId(), 200, gpsShareStartedAt);
           if (history && history.items && history.items.length > 1) {
             // Hapus garis riwayat yang lama sebelum menggambar yang baru
             if (historyLayerGps) mapGps.removeLayer(historyLayerGps);
@@ -964,6 +969,9 @@ async function toggleShareGps() {
               dashArray: "10, 10", // 👈 Efek putus-putus
               opacity: 0.8
             }).addTo(mapGps);
+          } else if (historyLayerGps) {
+            mapGps.removeLayer(historyLayerGps);
+            historyLayerGps = null;
           }
         } catch (err) { console.log("Gagal memuat riwayat perjalanan"); }
 
@@ -971,8 +979,13 @@ async function toggleShareGps() {
     }, 5000);
   } else {
     btn.innerText = "🟢 Mulai Share Live Loc";
+    gpsShareStartedAt = null;
     btn.classList.replace("btn-danger", "btn-primary");
     if (shareGpsInterval) clearInterval(shareGpsInterval);
+    if (historyLayerGps) {
+      mapGps.removeLayer(historyLayerGps);
+      historyLayerGps = null;
+    }
   }
 }
 

@@ -17,6 +17,7 @@ const HEADERS = {
 
 // WAKTU TOKEN: 30 DETIK
 const QR_TOKEN_TTL_MS = 30 * 1000; 
+const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
 
 function doGet(e) {
     try {
@@ -25,9 +26,9 @@ function doGet(e) {
 
         switch (path) {
              case 'telemetry/gps/history':
-                return sendSuccess(getGpsHistory(params.device_id, params.limit));
+                return sendSuccess(getGpsHistory(params.device_id, params.limit, params.from, params.to));
              case 'telemetry/gps/latest': 
-                return sendSuccess(getLatestGPS());
+                return sendSuccess(getLatestGPS(params.active_within_sec));
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
             case 'presence/list':
@@ -207,6 +208,17 @@ function hasGpsValue(value) {
     return value !== '' && value !== null && value !== undefined;
 }
 
+function parsePositiveInt(value, fallbackValue) {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackValue;
+}
+
+function parseOptionalDate(value) {
+    if (!value) return null;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function logGPS(body) {
     if (!body.device_id || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.GPS);
@@ -214,10 +226,12 @@ function logGPS(body) {
     sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO()]);
     return { recorded: true };
 }
-function getLatestGPS() {
+function getLatestGPS(activeWithinSec) {
     const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
     let allUsers = {};
+    const nowMs = Date.now();
+    const activeWindowMs = parsePositiveInt(activeWithinSec, LIVE_LOC_ACTIVE_WINDOW_SEC) * 1000;
     
     for (let i = data.length - 1; i >= 1; i--) {
         const deviceId = data[i][0];
@@ -225,8 +239,13 @@ function getLatestGPS() {
         const lng = data[i][2];
         const ts = data[i][5]; 
         const recordedAt = data[i][6];
+        const seenAt = recordedAt || ts;
         
         if (!deviceId || allUsers[deviceId]) continue;
+        if (!seenAt) continue;
+
+        const seenAtMs = new Date(seenAt).getTime();
+        if (!Number.isFinite(seenAtMs) || (nowMs - seenAtMs) > activeWindowMs) continue;
 
         if (hasGpsValue(lat) && hasGpsValue(lng)) {
             allUsers[deviceId] = { lat: lat, lng: lng, ts: ts, recorded_at: recordedAt };
@@ -235,7 +254,7 @@ function getLatestGPS() {
     return allUsers; 
 }
 function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
-function getGpsHistory(deviceId, limit) {
+function getGpsHistory(deviceId, limit, from, to) {
     if (!deviceId) throw new Error('Missing field: device_id');
 
     const sheet = getOrCreateSheet(SHEET.GPS);
@@ -243,11 +262,19 @@ function getGpsHistory(deviceId, limit) {
     let items = [];
     
     // Default ambil 50 titik terakhir jika parameter limit tidak diisi
-    const maxData = limit ? parseInt(limit) : 50; 
+    const maxData = parsePositiveInt(limit, 50);
+    const fromMs = parseOptionalDate(from);
+    const toMs = parseOptionalDate(to);
 
     // Looping dari baris paling bawah (data terbaru) ke atas
     for (let i = data.length - 1; i >= 1; i--) {
         if (data[i][0] === deviceId) {
+            const pointTs = data[i][5] || data[i][6];
+            const pointMs = parseOptionalDate(pointTs);
+
+            if (fromMs !== null && (pointMs === null || pointMs < fromMs)) continue;
+            if (toMs !== null && (pointMs === null || pointMs > toMs)) continue;
+
             items.push({
                 ts: data[i][5],   // Timestamp dari HP
                 lat: data[i][1],  // Latitude
@@ -262,6 +289,14 @@ function getGpsHistory(deviceId, limit) {
     return {
         device_id: deviceId,
         items: items.reverse()
+    };
+}
+
+function getGpsPolyline(deviceId, from, to) {
+    const history = getGpsHistory(deviceId, 500, from, to);
+    return {
+        device_id: history.device_id,
+        points: history.items
     };
 }
 

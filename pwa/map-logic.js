@@ -14,6 +14,7 @@ let isTrackingActive = false;
 let syncInterval = null;
 let otherUsersLayer = L.layerGroup(); // Layer khusus teman
 let historyLayer = null;              // Layer garis putus-putus
+let trackingStartedAt = null;         // Timestamp saat tracking mulai
 
 const GPS_DEPLOYMENT_ERROR =
   "Live Loc gagal: endpoint GPS backend belum aktif. Deploy ulang backend-gas.";
@@ -200,7 +201,7 @@ async function syncDataWithBackend() {
     // --- FITUR TRACKING ---
     if (isTrackingActive) {
       // 👈 Tambahkan _t: Date.now() untuk membobol sistem Cache bawaan Google
-      const history = await apiGetGpsHistory(myId, 50);
+      const history = await apiGetGpsHistory(myId, 200, trackingStartedAt);
       if (history && history.items && history.items.length > 1) {
         if (historyLayer) map.removeLayer(historyLayer);
         
@@ -215,6 +216,9 @@ async function syncDataWithBackend() {
           dashArray: "10, 10",  
           opacity: 0.8
         }).addTo(map);
+      } else if (historyLayer) {
+        map.removeLayer(historyLayer);
+        historyLayer = null;
       }
     }
   } catch (error) {
@@ -243,14 +247,19 @@ function toggleTracking() {
   isTrackingActive = !isTrackingActive;
 
   if (isTrackingActive) {
+    trackingStartedAt = new Date().toISOString();
     btn.style.background = '#ffa502'; 
     btn.style.color = '#000';
     btn.innerText = "⏹️ Stop Tracking";
   } else {
+    trackingStartedAt = null;
     btn.style.background = '#2f3542'; 
     btn.style.color = '#fff';
     btn.innerText = "🗺️ Mulai Tracking";
-    if (historyLayer) map.removeLayer(historyLayer); // Bersihkan garis merah
+    if (historyLayer) {
+      map.removeLayer(historyLayer); // Bersihkan garis merah
+      historyLayer = null;
+    }
   }
   manageSyncInterval();
 }
