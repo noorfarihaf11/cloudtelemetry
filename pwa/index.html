@@ -156,7 +156,6 @@
         </div>
 
         <div id="qrResult" style="display: none">
-          
           <div class="card">
             <div class="card-title">
               <span class="dot green"></span> QR Code Aktif
@@ -178,6 +177,38 @@
                 Salin Token
               </button>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span class="dot blue"></span> Yang Sudah Absen
+            </div>
+
+            <div class="attendance-count" id="attendanceCount">
+              Belum ada mahasiswa yang absen.
+            </div>
+
+            <div class="attendance-table-wrap">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>User ID</th>
+                    <th>Waktu</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceBody">
+                  <tr>
+                    <td colspan="4" class="empty-msg">Belum ada mahasiswa yang check-in.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="attendance-note">
+              Tombol hapus hanya menyembunyikan data di tampilan dosen. Data asli di spreadsheet tetap aman.
+            </p>
           </div>
         </div>
         </div>
