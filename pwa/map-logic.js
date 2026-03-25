@@ -1,0 +1,232 @@
+// --- DEKLARASI VARIABEL ---
+let map;
+let myMarker;
+let myCurrentLoc = null;
+
+// Rute (Garis Lurus)
+let isRouteModeActive = false;
+let destinationMarker = null;
+let routeLayer = null;
+
+// Live Loc & Tracking History
+let isLiveLocActive = false;
+let isTrackingActive = false;
+let syncInterval = null;
+let otherUsersLayer = L.layerGroup(); // Layer khusus teman
+let historyLayer = null;              // Layer garis putus-putus
+
+// --- FUNGSI MENDAPATKAN DEVICE ID ---
+// Agar tidak tertukar dengan user lain di database
+function getMyDeviceId() {
+  let deviceId = localStorage.getItem('device_id');
+  if (!deviceId) {
+    deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+    localStorage.setItem('device_id', deviceId);
+  }
+  return deviceId;
+}
+
+// --- INISIALISASI PETA ---
+function initMap() {
+  map = L.map('map', { zoomControl: false }).setView([-2.5489, 118.0149], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  
+  otherUsersLayer.addTo(map); // Daftarkan layer teman ke peta
+
+  map.on('click', function(e) {
+    if (!isRouteModeActive) return; 
+    if (!myCurrentLoc) {
+      alert("Tunggu sampai lokasimu terdeteksi dulu ya!");
+      return;
+    }
+    calculateAndDrawRoute(e.latlng);
+  });
+
+  startGPS();
+}
+
+// --- FUNGSI GPS REAL-TIME ---
+function startGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('gps-status').innerText = "GPS tidak didukung browser ini.";
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      myCurrentLoc = { lat, lng };
+
+      document.getElementById('gps-status').innerText = "Lokasi: " + getMyDeviceId();
+      document.getElementById('gps-dot').classList.add('active');
+
+      if (!myMarker) {
+        map.setView([lat, lng], 15);
+        myMarker = L.marker([lat, lng]).addTo(map).bindPopup("Kamu di sini!").openPopup();
+      } else {
+        myMarker.setLatLng([lat, lng]); 
+      }
+    },
+    (error) => document.getElementById('gps-status').innerText = "Nyalakan izin lokasi!",
+    { enableHighAccuracy: true, maximumAge: 0 }
+  );
+}
+
+// --- FITUR 1: BERI PIN & RUTE (OSRM) ---
+function toggleRouteMode() {
+  const btn = document.getElementById('btn-route');
+  isRouteModeActive = !isRouteModeActive;
+
+  if (isRouteModeActive) {
+    btn.style.background = '#ffa502'; 
+    btn.innerText = "📍 Mode Pin (Aktif)";
+  } else {
+    btn.style.background = '#1e90ff'; 
+    btn.innerText = "📍 Beri Pin Rute";
+  }
+}
+
+async function calculateAndDrawRoute(destinationLatLng) {
+  if (destinationMarker) map.removeLayer(destinationMarker);
+  if (routeLayer) map.removeLayer(routeLayer);
+
+  destinationMarker = L.marker(destinationLatLng).addTo(map).bindPopup("Menghitung rute...").openPopup();
+
+  const start = `${myCurrentLoc.lng},${myCurrentLoc.lat}`;
+  const end = `${destinationLatLng.lng},${destinationLatLng.lat}`;
+  const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`;
+
+  try {
+    const response = await fetch(osrmUrl);
+    const data = await response.json();
+
+    if (data.code === "Ok" && data.routes.length > 0) {
+      const route = data.routes[0];
+      const routeCoords = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+      routeLayer = L.polyline(routeCoords, { color: '#4361ee', weight: 6, opacity: 0.8 }).addTo(map);
+      map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+      const distanceKm = (route.distance / 1000).toFixed(2);
+      destinationMarker.setPopupContent(`<b>Tujuan</b><br>Jarak: ${distanceKm} km`).openPopup();
+    } else {
+      destinationMarker.setPopupContent("Jalan raya tidak ditemukan.").openPopup();
+    }
+  } catch (error) {
+    destinationMarker.setPopupContent("Gagal mengambil data rute.").openPopup();
+  }
+}
+
+// --- FITUR 2 & 3: MANAJEMEN SYNC INTERVAL ---
+// Fungsi ini mengatur agar data dikirim setiap 5 detik HANYA saat fitur dinyalakan
+function manageSyncInterval() {
+  if (isLiveLocActive || isTrackingActive) {
+    if (!syncInterval) syncInterval = setInterval(syncDataWithBackend, 5000);
+    syncDataWithBackend(); // Langsung eksekusi 1x saat tombol ditekan
+  } else {
+    if (syncInterval) {
+      clearInterval(syncInterval);
+      syncInterval = null;
+    }
+  }
+}
+
+async function syncDataWithBackend() {
+  if (!myCurrentLoc) return;
+  const myId = getMyDeviceId();
+
+  try {
+    // 1. Selalu laporkan lokasi kita saat ini ke Google Apps Script
+    await apiLogGPS({
+      device_id: myId, lat: myCurrentLoc.lat, lng: myCurrentLoc.lng, accuracy: 10
+    });
+
+    // 2. Jika LIVE LOC aktif, tarik posisi teman dan render jadi Marker
+    if (isLiveLocActive) {
+      const data = await apiGet("telemetry/gps/latest", { _t: Date.now() });
+      if (data) {
+        otherUsersLayer.clearLayers(); 
+        Object.keys(data).forEach(key => {
+          if (key !== myId) { // Jangan render diri sendiri
+            const friend = data[key];
+            const fLat = parseFloat(friend.lat);
+            const fLng = parseFloat(friend.lng);
+            
+            if (!isNaN(fLat) && !isNaN(fLng)) {
+              // Ikon bulat hijau untuk teman
+              const friendIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:#2ed573; width:15px; height:15px; border-radius:50%; border:2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [15, 15]
+              });
+
+              L.marker([fLat, fLng], {icon: friendIcon})
+               .addTo(otherUsersLayer)
+               .bindPopup(`<b>Teman:</b> ${key}<br>⏰ ${new Date(friend.ts).toLocaleTimeString('id-ID')}`);
+            }
+          }
+        });
+      }
+    }
+
+    // 3. Jika TRACKING aktif, tarik histori perjalanan dan render Garis Putus-putus
+    if (isTrackingActive) {
+      const history = await apiGet("telemetry/gps/history", { device_id: myId, limit: 50 });
+      if (history && history.items && history.items.length > 1) {
+        if (historyLayer) map.removeLayer(historyLayer);
+        
+        const historyCoords = history.items.map(item => [parseFloat(item.lat), parseFloat(item.lng)]);
+        historyLayer = L.polyline(historyCoords, {
+          color: "#ff4757",     // Warna Merah
+          weight: 4,
+          dashArray: "10, 10",  // 👈 Rahasia garis putus-putusnya!
+          opacity: 0.8
+        }).addTo(map);
+      }
+    }
+  } catch (error) {
+    console.warn("Gagal sync dengan backend GAS:", error);
+  }
+}
+
+// --- TOMBOL TOGGLE ---
+function toggleLiveLoc() {
+  const btn = document.getElementById('btn-live');
+  isLiveLocActive = !isLiveLocActive;
+
+  if (isLiveLocActive) {
+    btn.style.background = '#ff4757'; 
+    btn.innerText = "🔴 Live Loc (Nyala)";
+  } else {
+    btn.style.background = '#747d8c'; 
+    btn.innerText = "📡 Live Loc (Mati)";
+    otherUsersLayer.clearLayers(); // Bersihkan peta dari marker teman
+  }
+  manageSyncInterval();
+}
+
+function toggleTracking() {
+  const btn = document.getElementById('btn-track');
+  isTrackingActive = !isTrackingActive;
+
+  if (isTrackingActive) {
+    btn.style.background = '#ffa502'; 
+    btn.style.color = '#000';
+    btn.innerText = "⏹️ Stop Tracking";
+  } else {
+    btn.style.background = '#2f3542'; 
+    btn.style.color = '#fff';
+    btn.innerText = "🗺️ Mulai Tracking";
+    if (historyLayer) map.removeLayer(historyLayer); // Bersihkan garis merah
+  }
+  manageSyncInterval();
+}
+
+window.onload = initMap;

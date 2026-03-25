@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Map Tracker Baru</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <link rel="stylesheet" href="map-style.css">
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <div class="top-panel">
+    <div class="status-indicator">
+      <span class="dot" id="gps-dot"></span>
+      <span id="gps-status">Mencari lokasi GPS...</span>
+    </div>
+  </div>
+
+  <div class="bottom-controls">
+    <button class="fab btn-route" id="btn-route" onclick="toggleRouteMode()">
+      📍 Beri Pin Rute
+    </button>
+    <button class="fab btn-live" id="btn-live" onclick="toggleLiveLoc()">
+      📡 Live Loc (Mati)
+    </button>
+    <button class="fab btn-track" id="btn-track" onclick="toggleTracking()">
+      🗺️ Mulai Tracking
+    </button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="api.js"></script>
+  <script src="map-logic.js"></script>
+
+</body>
+</html>
