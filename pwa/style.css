@@ -981,30 +981,14 @@ body {
   padding: 24px;
   font-style: italic;
 }
-.attendance-table th:last-child,
-.attendance-table td:last-child {
-  width: 68px;
-  text-align: center;
+.attendance-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
-.attendance-delete-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(229, 72, 77, 0.16);
-  border-radius: 10px;
-  background: rgba(229, 72, 77, 0.08);
-  color: var(--danger);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-.attendance-delete-btn:hover {
-  background: rgba(229, 72, 77, 0.14);
-  transform: translateY(-1px);
-}
-.attendance-delete-btn:active {
-  transform: scale(0.96);
+.attendance-clear-btn {
+  width: auto;
+  min-width: 160px;
 }
 .attendance-note {
   margin-top: 12px;

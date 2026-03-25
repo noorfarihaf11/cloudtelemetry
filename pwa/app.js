@@ -15,6 +15,7 @@ let activeSessionId = '';
 let pollingInterval = null;        
 const POLLING_INTERVAL_MS = 3000;
 const ATTENDANCE_HIDDEN_PREFIX = 'attendance_hidden';
+let latestVisibleAttendanceRows = [];
 
 // ─── DEVICE ID ───
 function getDeviceId() {
@@ -128,14 +129,20 @@ function saveHiddenAttendanceIds(ids, courseId = activeCourseId, sessionId = act
   );
 }
 
-function dismissAttendanceItem(presenceId) {
-  if (!presenceId) return;
+function hideAllAttendanceItems() {
+  const idsToHide = latestVisibleAttendanceRows
+    .map((row) => (row && typeof row === 'object' ? String(row.presence_id || '') : ''))
+    .filter(Boolean);
+
+  if (idsToHide.length === 0) {
+    showToast('Tidak ada data absen yang sedang tampil.', 'info');
+    return;
+  }
 
   const hiddenIds = getHiddenAttendanceIds();
-  hiddenIds.push(String(presenceId));
-  saveHiddenAttendanceIds(hiddenIds);
+  saveHiddenAttendanceIds(hiddenIds.concat(idsToHide));
   fetchAttendance();
-  showToast('Baris disembunyikan dari tampilan dosen.', 'info');
+  showToast('Semua data absen yang tampil sudah disembunyikan dari frontend.', 'info');
 }
 
 
@@ -284,6 +291,7 @@ async function fetchAttendance() {
     const data = await apiGetSessionPresenceData(activeCourseId, activeSessionId);
     const countEl = document.getElementById('attendanceCount');
     const bodyEl = document.getElementById('attendanceBody');
+    const hideBtn = document.getElementById('btnHideAttendance');
 
     if (!bodyEl) return;
 
@@ -295,6 +303,11 @@ async function fetchAttendance() {
       if (!student || typeof student !== 'object') return true;
       return !hiddenIds.has(String(student.presence_id || ''));
     });
+    latestVisibleAttendanceRows = visibleStudents;
+
+    if (hideBtn) {
+      hideBtn.disabled = visibleStudents.length === 0;
+    }
 
     if (countEl) {
       if (totalCount === 0) {
@@ -311,30 +324,17 @@ async function fetchAttendance() {
       const emptyMessage = totalCount === 0
         ? 'Belum ada mahasiswa yang check-in.'
         : 'Semua data scan sudah Anda sembunyikan dari tampilan frontend.';
-      bodyEl.innerHTML = '<tr><td colspan="4" class="empty-msg">' + emptyMessage + '</td></tr>';
+      bodyEl.innerHTML = '<tr><td colspan="3" class="empty-msg">' + emptyMessage + '</td></tr>';
     } else {
       bodyEl.innerHTML = visibleStudents.map((s, idx) => {
         const userId = typeof s === 'string' ? s : s.user_id;
-        const presenceId = typeof s === 'object' ? s.presence_id : '';
         const ts = (typeof s === 'object' && s.ts)
           ? new Date(s.ts).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' })
-          : '—';
-        const deleteButton = presenceId
-          ? '<button class="attendance-delete-btn" type="button" title="Sembunyikan dari tampilan" aria-label="Sembunyikan dari tampilan" onclick="dismissAttendanceItem(' + JSON.stringify(String(presenceId)) + ')">' +
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                '<polyline points="3 6 5 6 21 6"></polyline>' +
-                '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>' +
-                '<path d="M10 11v6"></path>' +
-                '<path d="M14 11v6"></path>' +
-                '<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>' +
-              '</svg>' +
-            '</button>'
           : '—';
         return '<tr>' +
           '<td>' + (idx + 1) + '</td>' +
           '<td><strong>' + esc(userId) + '</strong></td>' +
           '<td>' + ts + '</td>' +
-          '<td>' + deleteButton + '</td>' +
         '</tr>';
       }).join('');
     }

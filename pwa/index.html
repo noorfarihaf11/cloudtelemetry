@@ -188,6 +188,17 @@
               Belum ada mahasiswa yang absen.
             </div>
 
+            <div class="attendance-actions">
+              <button
+                class="btn btn-outline btn-sm attendance-clear-btn"
+                id="btnHideAttendance"
+                onclick="hideAllAttendanceItems()"
+                type="button"
+              >
+                Hapus Tampilan
+              </button>
+            </div>
+
             <div class="attendance-table-wrap">
               <table class="attendance-table">
                 <thead>
@@ -195,12 +206,11 @@
                     <th>No</th>
                     <th>User ID</th>
                     <th>Waktu</th>
-                    <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody id="attendanceBody">
                   <tr>
-                    <td colspan="4" class="empty-msg">Belum ada mahasiswa yang check-in.</td>
+                    <td colspan="3" class="empty-msg">Belum ada mahasiswa yang check-in.</td>
                   </tr>
                 </tbody>
               </table>
