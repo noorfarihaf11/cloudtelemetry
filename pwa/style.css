@@ -94,7 +94,7 @@ body {
 /* ─── CONTAINER ─── */
 .container {
   width: 100%;
-  max-width: 1100px;
+  max-width: 480px;
   margin: 0 auto;
   padding: 30px 20px;
 }
