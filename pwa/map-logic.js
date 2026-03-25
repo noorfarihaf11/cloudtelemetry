@@ -155,6 +155,13 @@ function handleGpsSyncError(error) {
   console.warn("Gagal menarik data dari GAS:", error);
 }
 
+function getGpsSyncMode() {
+  const modes = [];
+  if (isLiveLocActive) modes.push('live_loc');
+  if (isTrackingActive) modes.push('tracking');
+  return modes.join(',');
+}
+
 async function syncDataWithBackend() {
   if (!myCurrentLoc) return;
   const myId = getMyDeviceId();
@@ -164,7 +171,11 @@ async function syncDataWithBackend() {
   // Kita hilangkan 'await' dan pisahkan try/catch-nya. 
   // Biarkan proses kirim berjalan di latar belakang tanpa memblokir proses tarik data.
   apiLogGPS({
-    device_id: myId, lat: myCurrentLoc.lat, lng: myCurrentLoc.lng, accuracy: 10
+    device_id: myId,
+    lat: myCurrentLoc.lat,
+    lng: myCurrentLoc.lng,
+    accuracy: 10,
+    mode: getGpsSyncMode()
   }).catch(err => console.log("Log GPS jalan, abaikan error bawaan Google:", err));
 
   // 2. TARIK DATA

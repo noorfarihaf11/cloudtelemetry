@@ -12,7 +12,7 @@ const HEADERS = {
     [SHEET.TOKENS]: ['qr_token', 'course_id', 'session_id', 'created_at', 'expires_at', 'used'],
     [SHEET.PRESENCE]: ['presence_id', 'user_id', 'device_id', 'course_id', 'session_id', 'qr_token', 'ts', 'recorded_at'],
     [SHEET.ACCEL]: ['device_id', 'x', 'y', 'z', 'sample_ts', 'batch_ts', 'recorded_at'],
-    [SHEET.GPS]: ['device_id', 'lat', 'lng', 'accuracy', 'altitude', 'ts', 'recorded_at'],
+    [SHEET.GPS]: ['device_id', 'lat', 'lng', 'accuracy', 'altitude', 'ts', 'recorded_at', 'mode'],
 };
 
 // WAKTU TOKEN: 30 DETIK
@@ -219,11 +219,19 @@ function parseOptionalDate(value) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function gpsModeIncludes(modeValue, targetMode) {
+    return String(modeValue || '')
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .includes(targetMode);
+}
+
 function logGPS(body) {
     if (!body.device_id || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.GPS);
     
-    sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO()]);
+    sheet.appendRow([body.device_id, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
     return { recorded: true };
 }
 function getLatestGPS(activeWithinSec) {
@@ -239,10 +247,12 @@ function getLatestGPS(activeWithinSec) {
         const lng = data[i][2];
         const ts = data[i][5]; 
         const recordedAt = data[i][6];
+        const mode = data[i][7];
         const seenAt = recordedAt || ts;
         
         if (!deviceId || allUsers[deviceId]) continue;
         if (!seenAt) continue;
+        if (!gpsModeIncludes(mode, 'live_loc')) continue;
 
         const seenAtMs = new Date(seenAt).getTime();
         if (!Number.isFinite(seenAtMs) || (nowMs - seenAtMs) > activeWindowMs) continue;

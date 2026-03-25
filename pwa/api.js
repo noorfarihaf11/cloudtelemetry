@@ -156,6 +156,7 @@ async function apiLogGPS(data) {
     lng: data.lng,
     accuracy: data.accuracy || "",
     altitude: data.altitude || "",
+    mode: data.mode || "",
     ts: data.ts || new Date().toISOString(),
   });
 }

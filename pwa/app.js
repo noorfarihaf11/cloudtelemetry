@@ -864,7 +864,8 @@ async function syncSharedGps() {
     device_id: getDeviceId(),
     lat: myLocGps.lat,
     lng: myLocGps.lng,
-    accuracy: 10
+    accuracy: 10,
+    mode: "live_loc"
   });
 
   const data = await apiGetGpsLatest();
@@ -925,12 +926,13 @@ async function toggleShareGps() {
       if (!myLocGps) return;
       try {
         // 1. Post lokasi kita sendiri menggunakan apiLogGPS bawaan
-        await apiLogGPS({
-            device_id: getDeviceId(),
-            lat: myLocGps.lat,
-            lng: myLocGps.lng,
-            accuracy: 10
-        });
+          await apiLogGPS({
+              device_id: getDeviceId(),
+              lat: myLocGps.lat,
+              lng: myLocGps.lng,
+              accuracy: 10,
+              mode: "live_loc"
+          });
 
       // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
        const data = await apiGetGpsLatest();
