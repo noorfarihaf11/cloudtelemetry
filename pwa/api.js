@@ -4,19 +4,100 @@
 
 // BACKEND PRESENSI QR (backend-gas/)
 // URL deployment Google Apps Script untuk Presensi QR
-const API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
+const DEFAULT_API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
 
 // BACKEND TELEMETRY ACCEL (root Code.js)
 // GANTI URL ini dengan URL deployment GAS project root (cloudtelemetry)
-const API_TELEMETRY = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
+const DEFAULT_API_TELEMETRY = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
 const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
+const SWAP_TEST_STORAGE_KEY = "swap_test_config_v1";
+const API_PROFILE_STORAGE_KEY = "active_api_profile";
 
 
 // Validasi: apakah URL sudah diganti dari placeholder?
 function checkApiBase() {
-  if (API_BASE.includes('AKfycbxXXXXXXXX')) {
+  if (getApiBaseUrl().includes('AKfycbxXXXXXXXX')) {
     throw new Error('API_BASE belum diatur! Buka file api.js dan ganti URL placeholder dengan URL deployment GAS kamu.');
   }
+}
+
+function normalizeApiUrl(url) {
+  const normalized = String(url || "").trim();
+  if (!normalized) return "";
+
+  try {
+    const parsed = new URL(normalized);
+    return parsed.toString();
+  } catch (error) {
+    throw new Error("URL GAS tidak valid.");
+  }
+}
+
+function getSwapTestConfig() {
+  try {
+    const raw = localStorage.getItem(SWAP_TEST_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      apiBase: String(parsed.apiBase || "").trim(),
+      apiTelemetry: String(parsed.apiTelemetry || "").trim()
+    };
+  } catch (error) {
+    return { apiBase: "", apiTelemetry: "" };
+  }
+}
+
+function saveSwapTestConfig(apiBase, apiTelemetry) {
+  const nextConfig = {
+    apiBase: normalizeApiUrl(apiBase),
+    apiTelemetry: normalizeApiUrl(apiTelemetry)
+  };
+
+  localStorage.setItem(SWAP_TEST_STORAGE_KEY, JSON.stringify(nextConfig));
+  return nextConfig;
+}
+
+function clearSwapTestConfig() {
+  localStorage.removeItem(SWAP_TEST_STORAGE_KEY);
+}
+
+function setActiveApiProfile(profile) {
+  localStorage.setItem(API_PROFILE_STORAGE_KEY, profile === "swap" ? "swap" : "default");
+}
+
+function getActiveApiProfile() {
+  return localStorage.getItem(API_PROFILE_STORAGE_KEY) === "swap" ? "swap" : "default";
+}
+
+function disableSwapTestProfile() {
+  setActiveApiProfile("default");
+}
+
+function canUseSwapTestProfile() {
+  const config = getSwapTestConfig();
+  return Boolean(config.apiBase && config.apiTelemetry);
+}
+
+function enableSwapTestProfile() {
+  if (!canUseSwapTestProfile()) {
+    throw new Error("Lengkapi URL GAS QR/GPS dan Accelerometer terlebih dahulu.");
+  }
+  setActiveApiProfile("swap");
+}
+
+function getApiBaseUrl() {
+  const config = getSwapTestConfig();
+  if (getActiveApiProfile() === "swap" && config.apiBase) {
+    return config.apiBase;
+  }
+  return DEFAULT_API_BASE;
+}
+
+function getTelemetryApiUrl() {
+  const config = getSwapTestConfig();
+  if (getActiveApiProfile() === "swap" && config.apiTelemetry) {
+    return config.apiTelemetry;
+  }
+  return DEFAULT_API_TELEMETRY;
 }
 
 /**
@@ -24,7 +105,7 @@ function checkApiBase() {
  */
 async function apiGet(path, params = {}) {
   checkApiBase();
-  const url = new URL(API_BASE);
+  const url = new URL(getApiBaseUrl());
   url.searchParams.set("path", path);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') {
@@ -61,7 +142,7 @@ function ensureGpsEndpointPayload(path, data) {
  */
 async function apiPost(path, body = {}) {
   checkApiBase();
-  const url = new URL(API_BASE);
+  const url = new URL(getApiBaseUrl());
   url.searchParams.set("path", path);
 
   const res = await fetch(url.toString(), {
@@ -218,7 +299,7 @@ async function apiGetGpsPolyline(deviceId, from, to) {
  * Pattern from client.html — no Content-Type header (avoids CORS preflight)
  */
 async function apiPostAccelTelemetry(payload) {
-  const url = new URL(API_TELEMETRY);
+  const url = new URL(getTelemetryApiUrl());
   url.searchParams.set("path", "telemetry/accel");
 
   const res = await fetch(url.toString(), {
@@ -238,7 +319,7 @@ async function apiPostAccelTelemetry(payload) {
  */
 async function apiGetAccelLatest(deviceId) {
   const res = await fetch(
-    `${API_TELEMETRY}?path=telemetry/accel/latest&device_id=${encodeURIComponent(deviceId)}`,
+    `${getTelemetryApiUrl()}?path=telemetry/accel/latest&device_id=${encodeURIComponent(deviceId)}`,
     { redirect: "follow" }
   );
   const json = await res.json();
@@ -251,7 +332,7 @@ async function apiGetAccelLatest(deviceId) {
  */
 async function apiGetAccelDevices() {
   const res = await fetch(
-    `${API_TELEMETRY}?path=telemetry/accel/devices`,
+    `${getTelemetryApiUrl()}?path=telemetry/accel/devices`,
     { redirect: "follow" }
   );
   const json = await res.json();

@@ -16,6 +16,7 @@ let pollingInterval = null;
 const POLLING_INTERVAL_MS = 3000;
 const ATTENDANCE_HIDDEN_PREFIX = 'attendance_hidden';
 let latestVisibleAttendanceRows = [];
+let currentFeatureSourceMenu = 'role';
 
 // ─── DEVICE ID ───
 function getDeviceId() {
@@ -54,7 +55,7 @@ function showView(name) {
     btnBack.onclick = function() { showView('accel'); };
   } else if (name === 'presensi' || name === 'accel') {
     // Sub-menus → back to main menu
-    btnBack.onclick = function() { showView('role'); };
+    btnBack.onclick = function() { showView(currentFeatureSourceMenu); };
     stopAccel();
     stopAdminRefresh();
   } else {
@@ -64,6 +65,9 @@ function showView(name) {
   // Auto-load devices when entering admin view
   if (name === 'accel-admin') {
     loadAdminDevices();
+  }
+  if (name === 'swap') {
+    refreshSwapTestPanel();
   }
   if (name === 'gps') {
     document.getElementById('gpsDeviceIdDisplay').textContent = getDeviceId();
@@ -105,6 +109,112 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;') : '';
+}
+
+function openDefaultPresensi() {
+  disableSwapTestProfile();
+  currentFeatureSourceMenu = 'role';
+  showView('presensi');
+}
+
+function openDefaultAccel() {
+  disableSwapTestProfile();
+  currentFeatureSourceMenu = 'role';
+  showView('accel');
+}
+
+function openDefaultGps() {
+  disableSwapTestProfile();
+  window.location.href = 'map-view.html';
+}
+
+function openSwapTestView() {
+  currentFeatureSourceMenu = 'swap';
+  showView('swap');
+}
+
+function getSwapTestInputValues() {
+  const apiBaseInput = document.getElementById('swapApiBaseInput');
+  const apiTelemetryInput = document.getElementById('swapApiTelemetryInput');
+
+  return {
+    apiBase: apiBaseInput ? apiBaseInput.value.trim() : '',
+    apiTelemetry: apiTelemetryInput ? apiTelemetryInput.value.trim() : ''
+  };
+}
+
+function refreshSwapTestPanel() {
+  const config = getSwapTestConfig();
+  const apiBaseInput = document.getElementById('swapApiBaseInput');
+  const apiTelemetryInput = document.getElementById('swapApiTelemetryInput');
+  const statusText = document.getElementById('swapStatusText');
+
+  if (apiBaseInput) apiBaseInput.value = config.apiBase || '';
+  if (apiTelemetryInput) apiTelemetryInput.value = config.apiTelemetry || '';
+
+  if (statusText) {
+    statusText.textContent =
+      getActiveApiProfile() === 'swap'
+        ? 'Mode aktif: Swap Test'
+        : 'Mode aktif: Server sendiri';
+  }
+}
+
+function saveSwapTestLinks() {
+  try {
+    const inputs = getSwapTestInputValues();
+    saveSwapTestConfig(inputs.apiBase, inputs.apiTelemetry);
+    refreshSwapTestPanel();
+    showToast('Link GAS swap test berhasil disimpan.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Link GAS tidak valid.', 'error');
+  }
+}
+
+function disableSwapTestMode() {
+  disableSwapTestProfile();
+  currentFeatureSourceMenu = 'role';
+  refreshSwapTestPanel();
+  showToast('Kembali menggunakan server sendiri.', 'info');
+}
+
+function prepareSwapTestProfile() {
+  const inputs = getSwapTestInputValues();
+
+  if (inputs.apiBase || inputs.apiTelemetry) {
+    saveSwapTestConfig(inputs.apiBase, inputs.apiTelemetry);
+  }
+
+  enableSwapTestProfile();
+  currentFeatureSourceMenu = 'swap';
+  refreshSwapTestPanel();
+}
+
+function openSwapPresensi() {
+  try {
+    prepareSwapTestProfile();
+    showView('presensi');
+  } catch (err) {
+    showToast(err.message || 'Lengkapi link GAS swap test terlebih dahulu.', 'error');
+  }
+}
+
+function openSwapAccel() {
+  try {
+    prepareSwapTestProfile();
+    showView('accel');
+  } catch (err) {
+    showToast(err.message || 'Lengkapi link GAS swap test terlebih dahulu.', 'error');
+  }
+}
+
+function openSwapGps() {
+  try {
+    prepareSwapTestProfile();
+    window.location.href = 'map-view.html';
+  } catch (err) {
+    showToast(err.message || 'Lengkapi link GAS swap test terlebih dahulu.', 'error');
+  }
 }
 
 function getAttendanceHiddenStorageKey(courseId, sessionId) {
@@ -1281,4 +1391,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Show device ID
   const devIdEl = document.getElementById('deviceIdDisplay');
   if (devIdEl) devIdEl.textContent = getDeviceId();
+  refreshSwapTestPanel();
 });
