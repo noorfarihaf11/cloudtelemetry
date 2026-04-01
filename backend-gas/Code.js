@@ -41,6 +41,8 @@ function doGet(e) {
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
             case 'telemetry/accel/latest':
                 return sendSuccess(accelLatest(params.device_id));
+            case 'telemetry/accel/devices':
+                return sendSuccess(accelDevices());
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi Dosen')
@@ -48,6 +50,15 @@ function doGet(e) {
             case 'scan':
                 return HtmlService.createHtmlOutputFromFile('Scan')
                     .setTitle('Scanner Presensi Mahasiswa')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+            case 'viewer':
+                const tpl = HtmlService.createTemplateFromFile('viewer');
+                tpl.device_id = params.device_id || '';
+                return tpl.evaluate().setTitle('Accel Viewer')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+            case 'client':
+                return HtmlService.createTemplateFromFile('client')
+                    .evaluate().setTitle('Accel Client')
                     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
             default:
                 return sendSuccess({ status: 'ok', message: 'GAS Backend API is running.' });
@@ -67,6 +78,7 @@ function doPost(e) {
             case 'presence/checkin': return sendSuccess(checkin(body));
             case 'sensor/accel/batch': return sendSuccess(batchAccel(body));
             case 'telemetry/accel': return sendSuccess(telemetryAccelBatch(body));
+            case 'telemetry/gps':   return sendSuccess(logGPS(body));
             case 'sensor/gps': return sendSuccess(logGPS(body));
             case 'sensor/gps/live/stop': return sendSuccess(stopLiveGPS(body));
             default: return sendError('Unknown endpoint');
@@ -417,6 +429,15 @@ function accelLatest(deviceId) {
         }
     }
     throw new Error('device_not_found');
+}
+
+function accelDevices() {
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { devices: [] };
+    const rows = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const devices = [...new Set(rows.map(r => r[0]).filter(Boolean))];
+    return { devices };
 }
 
 // ============================================================
