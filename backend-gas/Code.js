@@ -47,7 +47,7 @@ function doGet(e) {
              case 'telemetry/gps/history':
                 return sendSuccess(getGpsHistory(params.device_id, params.limit, params.from, params.to));
              case 'telemetry/gps/latest': 
-                return sendSuccess(getLatestGPS(params.active_within_sec));
+                return sendSuccess(getLatestGPS(params.device_id, params.active_within_sec));
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
             case 'presence/list':
@@ -302,17 +302,23 @@ function upsertLiveGPS(body, isActive) {
 function logGPS(body) {
     const normalizedDeviceId = normalizeDeviceId(body.device_id);
     if (!normalizedDeviceId || !hasGpsValue(body.lat) || !hasGpsValue(body.lng)) throw new Error('Missing fields');
+    const accuracyValue = hasGpsValue(body.accuracy_m) ? body.accuracy_m : body.accuracy;
     const sheet = getOrCreateSheet(SHEET.GPS);
     
-    sheet.appendRow([normalizedDeviceId, body.lat, body.lng, body.accuracy || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
+    sheet.appendRow([normalizedDeviceId, body.lat, body.lng, accuracyValue || '', body.altitude || '', body.ts || nowISO(), nowISO(), body.mode || '']);
 
     if (gpsModeIncludes(body.mode, 'live_loc')) {
-        upsertLiveGPS(Object.assign({}, body, { device_id: normalizedDeviceId }), true);
+        upsertLiveGPS(Object.assign({}, body, { device_id: normalizedDeviceId, accuracy: accuracyValue || '' }), true);
     }
 
-    return { recorded: true };
+    return { accepted: true, recorded: true };
 }
-function getLatestGPS(activeWithinSec) {
+function getLatestGPS(deviceId, activeWithinSec) {
+    const normalizedDeviceId = normalizeDeviceId(deviceId);
+    if (normalizedDeviceId) {
+        return getLatestGpsPoint(normalizedDeviceId);
+    }
+
     const sheet = getOrCreateSheet(SHEET.GPS_LIVE);
     const data = sheet.getDataRange().getValues();
     let allUsers = {};
@@ -338,12 +344,40 @@ function getLatestGPS(activeWithinSec) {
         if (!Number.isFinite(seenAtMs) || (nowMs - seenAtMs) > activeWindowMs) continue;
 
         if (hasGpsValue(lat) && hasGpsValue(lng)) {
-            allUsers[deviceId] = { lat: lat, lng: lng, ts: ts, recorded_at: recordedAt };
+            allUsers[deviceId] = {
+                lat: lat,
+                lng: lng,
+                ts: ts,
+                recorded_at: recordedAt,
+                accuracy_m: data[i][3]
+            };
         }
     }
     return allUsers; 
 }
-function getGpsMarker(deviceId) { return { status: "ok", device_id: deviceId }; }
+function getLatestGpsPoint(deviceId) {
+    const normalizedDeviceId = normalizeDeviceId(deviceId);
+    if (!normalizedDeviceId) throw new Error('Missing field: device_id');
+
+    const sheet = getOrCreateSheet(SHEET.GPS);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = rows.length - 1; i >= 1; i--) {
+        if (normalizeDeviceId(rows[i][0]) === normalizedDeviceId) {
+            return {
+                ts: rows[i][5],
+                lat: rows[i][1],
+                lng: rows[i][2],
+                accuracy_m: rows[i][3]
+            };
+        }
+    }
+
+    throw new Error('device_not_found');
+}
+function getGpsMarker(deviceId) {
+    return getLatestGpsPoint(deviceId);
+}
 function stopLiveGPS(bodyOrDeviceId) {
     if (bodyOrDeviceId && typeof bodyOrDeviceId === 'object') {
         return upsertLiveGPS({

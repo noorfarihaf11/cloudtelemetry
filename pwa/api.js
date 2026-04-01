@@ -236,15 +236,15 @@ async function apiBatchAccel(data) {
 
 /**
  * Log single GPS reading
- * @param {Object} data - { device_id, lat, lng, accuracy?, altitude?, ts? }
- * @returns {Promise<{recorded: boolean}>}
+ * @param {Object} data - { device_id, lat, lng, accuracy_m?, accuracy?, altitude?, ts? }
+ * @returns {Promise<{accepted: boolean}>}
  */
 async function apiLogGPS(data) {
   return apiPost("telemetry/gps", {
     device_id: data.device_id,
     lat: data.lat,
     lng: data.lng,
-    accuracy: data.accuracy || "",
+    accuracy_m: data.accuracy_m ?? data.accuracy ?? "",
     altitude: data.altitude || "",
     mode: data.mode || "",
     ts: data.ts || new Date().toISOString(),
@@ -259,15 +259,18 @@ async function apiStopLiveGps(deviceId, ts) {
 }
 
 /**
- * Get latest GPS marker for device
+ * Get latest GPS marker for one device — contract endpoint
  * @param {string} deviceId
  * @returns {Promise<Object>}
  */
 async function apiGetGpsMarker(deviceId) {
-  return apiGet("sensor/gps/marker", { device_id: deviceId });
+  return apiGet("telemetry/gps/latest", {
+    device_id: deviceId,
+    _t: Date.now()
+  });
 }
 
-async function apiGetGpsLatest(activeWithinSec = LIVE_LOC_ACTIVE_WINDOW_SEC) {
+async function apiGetGpsLiveUsers(activeWithinSec = LIVE_LOC_ACTIVE_WINDOW_SEC) {
   const data = await apiGet("telemetry/gps/latest", {
     active_within_sec: activeWithinSec,
     _t: Date.now()
@@ -300,7 +303,11 @@ async function apiGetGpsHistory(deviceId, limit = 50, from, to) {
  * @returns {Promise<Object>}
  */
 async function apiGetGpsPolyline(deviceId, from, to) {
-  return apiGet("sensor/gps/polyline", { device_id: deviceId, from, to });
+  const history = await apiGetGpsHistory(deviceId, 500, from, to);
+  return {
+    device_id: history.device_id,
+    points: history.items
+  };
 }
 
 /**

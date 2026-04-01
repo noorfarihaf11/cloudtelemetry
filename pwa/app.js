@@ -1050,7 +1050,7 @@ async function syncSharedGps() {
     mode: "live_loc"
   });
 
-  const data = await apiGetGpsLatest();
+  const data = await apiGetGpsLiveUsers();
   otherUsersLayerGps.clearLayers();
 
   Object.keys(data).forEach(key => {
@@ -1117,7 +1117,7 @@ async function toggleShareGps() {
           });
 
       // 2. Tarik lokasi semua teman menggunakan apiGet (Bawaan api.js yang anti-CORS)
-       const data = await apiGetGpsLatest();
+       const data = await apiGetGpsLiveUsers();
         
         if (data) {
           otherUsersLayerGps.clearLayers(); // Bersihkan marker lama

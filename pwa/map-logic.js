@@ -195,7 +195,7 @@ async function syncDataWithBackend() {
 
   try {
     if (isLiveLocActive) {
-      const data = await apiGetGpsLatest();
+      const data = await apiGetGpsLiveUsers();
       if (data) {
         otherUsersLayer.clearLayers();
         Object.keys(data).forEach(function (key) {
