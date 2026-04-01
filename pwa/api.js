@@ -113,18 +113,88 @@ function buildContractUrl(baseUrl, path, params = {}) {
   return url.toString();
 }
 
+function buildLegacyGasUrl(baseUrl, path, params = {}) {
+  const url = new URL(baseUrl);
+  url.searchParams.set("path", path);
+
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      url.searchParams.set(k, v);
+    }
+  });
+
+  return url.toString();
+}
+
+function isGasDefaultPayload(json) {
+  return Boolean(
+    json &&
+    json.ok === true &&
+    json.data &&
+    json.data.status === "ok" &&
+    typeof json.data.message === "string" &&
+    json.data.message.includes("GAS Backend API is running")
+  );
+}
+
+function isEndpointNotFoundPayload(json) {
+  const error = String(json && json.error ? json.error : "");
+  return /endpoint_not_found|unknown endpoint|not found/i.test(error);
+}
+
+async function fetchGasJson(baseUrl, path, options = {}) {
+  const {
+    method = "GET",
+    params = {},
+    body = undefined,
+    cache = undefined,
+    headers = undefined,
+  } = options;
+
+  const urls = [
+    buildContractUrl(baseUrl, path, params),
+    buildLegacyGasUrl(baseUrl, path, params),
+  ];
+
+  let lastError = null;
+
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const res = await fetch(urls[i], {
+        method,
+        redirect: "follow",
+        cache,
+        headers,
+        body,
+      });
+
+      const text = await res.text();
+      const json = JSON.parse(text);
+
+      if (i === 0 && (isGasDefaultPayload(json) || isEndpointNotFoundPayload(json))) {
+        lastError = new Error(json.error || json.data.message || "Endpoint fallback");
+        continue;
+      }
+
+      return json;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Failed to fetch");
+}
+
 /**
  * Helper: kirim GET request ke GAS API
  */
 async function apiGet(path, params = {}) {
   checkApiBase();
-  const res = await fetch(buildContractUrl(getApiBaseUrl(), path, params), {
+  const json = await fetchGasJson(getApiBaseUrl(), path, {
     method: "GET",
-    redirect: "follow",
+    params,
     cache: "no-store",
   });
-
-  const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }
@@ -147,14 +217,11 @@ function ensureGpsEndpointPayload(path, data) {
  */
 async function apiPost(path, body = {}) {
   checkApiBase();
-  const res = await fetch(buildContractUrl(getApiBaseUrl(), path), {
+  const json = await fetchGasJson(getApiBaseUrl(), path, {
     method: "POST",
-    redirect: "follow",
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(body),
   });
-
-  const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }
@@ -278,6 +345,16 @@ async function apiGetGpsLiveUsers(activeWithinSec = LIVE_LOC_ACTIVE_WINDOW_SEC) 
   return ensureGpsEndpointPayload("telemetry/gps/latest", data);
 }
 
+// Backward compatibility:
+// - no arg / numeric arg => daftar device live (perilaku lama live loc)
+// - string arg => latest point untuk device tersebut
+async function apiGetGpsLatest(deviceIdOrActiveWithinSec = LIVE_LOC_ACTIVE_WINDOW_SEC) {
+  if (typeof deviceIdOrActiveWithinSec === "string") {
+    return apiGetGpsMarker(deviceIdOrActiveWithinSec);
+  }
+  return apiGetGpsLiveUsers(deviceIdOrActiveWithinSec);
+}
+
 async function apiGetGpsHistory(deviceId, limit = 50, from, to) {
   const data = await apiGet("telemetry/gps/history", {
     device_id: deviceId,
@@ -315,15 +392,11 @@ async function apiGetGpsPolyline(deviceId, from, to) {
  * Pattern from client.html — no Content-Type header (avoids CORS preflight)
  */
 async function apiPostAccelTelemetry(payload) {
-  const res = await fetch(buildContractUrl(getTelemetryApiUrl(), "telemetry/accel"), {
+  const json = await fetchGasJson(getTelemetryApiUrl(), "telemetry/accel", {
     method: "POST",
-    redirect: "follow",
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(payload),
   });
-
-  const text = await res.text();
-  const json = JSON.parse(text);
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }
@@ -332,11 +405,10 @@ async function apiPostAccelTelemetry(payload) {
  * GET latest accelerometer reading — pattern from viewer.html
  */
 async function apiGetAccelLatest(deviceId) {
-  const res = await fetch(
-    buildContractUrl(getTelemetryApiUrl(), "telemetry/accel/latest", { device_id: deviceId }),
-    { redirect: "follow" }
-  );
-  const json = await res.json();
+  const json = await fetchGasJson(getTelemetryApiUrl(), "telemetry/accel/latest", {
+    method: "GET",
+    params: { device_id: deviceId },
+  });
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }
@@ -345,11 +417,9 @@ async function apiGetAccelLatest(deviceId) {
  * GET all registered device IDs — pattern from viewer.html
  */
 async function apiGetAccelDevices() {
-  const res = await fetch(
-    buildContractUrl(getTelemetryApiUrl(), "telemetry/accel/devices"),
-    { redirect: "follow" }
-  );
-  const json = await res.json();
+  const json = await fetchGasJson(getTelemetryApiUrl(), "telemetry/accel/devices", {
+    method: "GET",
+  });
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }
