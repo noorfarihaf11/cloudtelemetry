@@ -12,6 +12,8 @@ let html5QrScanner = null;
 let isPresenceRunning = false;
 let activeCourseId = '';
 let activeSessionId = '';
+let scannedCourseId = '';
+let scannedSessionId = '';
 let pollingInterval = null;        
 const POLLING_INTERVAL_MS = 3000;
 const ATTENDANCE_HIDDEN_PREFIX = 'attendance_hidden';
@@ -326,8 +328,13 @@ async function generateQR() {
     // Render QR Code — backend returns qr_token only (not URL)
     const qrContainer = document.getElementById('qrcode');
     qrContainer.innerHTML = '';
+    const qrPayloadUrl = new URL('https://cloudtelemetry.local/checkin');
+    qrPayloadUrl.searchParams.set('token', result.qr_token);
+    qrPayloadUrl.searchParams.set('course_id', activeCourseId);
+    qrPayloadUrl.searchParams.set('session_id', activeSessionId);
+
     new QRCode(qrContainer, {
-      text: result.qr_token,
+      text: qrPayloadUrl.toString(),
       width: 200,
       height: 200,
       colorDark: '#1a1d27',
@@ -514,12 +521,17 @@ function scanFromFile(input) {
 // ─── HANDLE SCAN RESULT ───
 // Backend QR encodes just the token string directly
 function handleScanResult(decodedText) {
+  scannedCourseId = '';
+  scannedSessionId = '';
+
   try {
     // Try parsing as URL first (backward compat)
     const url = new URL(decodedText);
     const token = url.searchParams.get('token');
     if (token) {
       document.getElementById('manualToken').value = token;
+      scannedCourseId = url.searchParams.get('course_id') || '';
+      scannedSessionId = url.searchParams.get('session_id') || '';
     } else {
       document.getElementById('manualToken').value = decodedText;
     }
@@ -607,6 +619,8 @@ async function doCheckin() {
       qr_token: token,
       user_id: userId,
       device_id: getDeviceId(),
+      course_id: scannedCourseId || undefined,
+      session_id: scannedSessionId || undefined,
     });
 
     // 3. Tunggu sensor selesai (GPS + Accel sudah jalan dari tadi)

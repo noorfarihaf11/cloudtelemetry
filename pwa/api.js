@@ -182,6 +182,8 @@ async function apiCheckinPresence(data) {
     qr_token: data.qr_token,
     user_id: data.user_id,
     device_id: data.device_id,
+    course_id: data.course_id,
+    session_id: data.session_id,
     ts: new Date().toISOString(),
   });
 }
