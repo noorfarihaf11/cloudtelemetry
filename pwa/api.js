@@ -99,20 +99,26 @@ function getTelemetryApiUrl() {
   return DEFAULT_API_TELEMETRY;
 }
 
+function buildContractUrl(baseUrl, path, params = {}) {
+  const url = new URL(baseUrl);
+  const cleanPath = String(path || "").replace(/^\/+/, "");
+  url.pathname = url.pathname.replace(/\/$/, "") + (cleanPath ? "/" + cleanPath : "");
+
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      url.searchParams.set(k, v);
+    }
+  });
+
+  return url.toString();
+}
+
 /**
  * Helper: kirim GET request ke GAS API
  */
 async function apiGet(path, params = {}) {
   checkApiBase();
-  const url = new URL(getApiBaseUrl());
-  url.searchParams.set("path", path);
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '') {
-      url.searchParams.set(k, v);
-    }
-  });
-
-  const res = await fetch(url.toString(), {
+  const res = await fetch(buildContractUrl(getApiBaseUrl(), path, params), {
     method: "GET",
     redirect: "follow",
     cache: "no-store",
@@ -141,10 +147,7 @@ function ensureGpsEndpointPayload(path, data) {
  */
 async function apiPost(path, body = {}) {
   checkApiBase();
-  const url = new URL(getApiBaseUrl());
-  url.searchParams.set("path", path);
-
-  const res = await fetch(url.toString(), {
+  const res = await fetch(buildContractUrl(getApiBaseUrl(), path), {
     method: "POST",
     redirect: "follow",
     headers: { "Content-Type": "text/plain" },
@@ -214,15 +217,20 @@ async function apiGetSessionPresenceData(courseId, sessionId) {
 // ─── SENSOR API ───
 
 /**
- * Batch send accelerometer data
+ * Batch send accelerometer data using contract endpoint
  * @param {Object} data - { device_id, data: [{x,y,z,ts},...], ts }
- * @returns {Promise<{saved: number}>}
+ * @returns {Promise<{accepted: number}>}
  */
 async function apiBatchAccel(data) {
-  return apiPost("sensor/accel/batch", {
+  return apiPost("telemetry/accel", {
     device_id: data.device_id,
-    data: data.data,
-    ts: new Date().toISOString(),
+    ts: data.ts || new Date().toISOString(),
+    samples: (data.data || []).map((sample) => ({
+      x: sample.x,
+      y: sample.y,
+      z: sample.z,
+      t: sample.ts || sample.t || new Date().toISOString(),
+    })),
   });
 }
 
@@ -232,7 +240,7 @@ async function apiBatchAccel(data) {
  * @returns {Promise<{recorded: boolean}>}
  */
 async function apiLogGPS(data) {
-  return apiPost("sensor/gps", {
+  return apiPost("telemetry/gps", {
     device_id: data.device_id,
     lat: data.lat,
     lng: data.lng,
@@ -244,7 +252,7 @@ async function apiLogGPS(data) {
 }
 
 async function apiStopLiveGps(deviceId, ts) {
-  return apiPost("sensor/gps/live/stop", {
+  return apiPost("telemetry/gps/live/stop", {
     device_id: deviceId,
     ts: ts || new Date().toISOString(),
   });
@@ -300,12 +308,10 @@ async function apiGetGpsPolyline(deviceId, from, to) {
  * Pattern from client.html — no Content-Type header (avoids CORS preflight)
  */
 async function apiPostAccelTelemetry(payload) {
-  const url = new URL(getTelemetryApiUrl());
-  url.searchParams.set("path", "telemetry/accel");
-
-  const res = await fetch(url.toString(), {
+  const res = await fetch(buildContractUrl(getTelemetryApiUrl(), "telemetry/accel"), {
     method: "POST",
     redirect: "follow",
+    headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(payload),
   });
 
@@ -320,7 +326,7 @@ async function apiPostAccelTelemetry(payload) {
  */
 async function apiGetAccelLatest(deviceId) {
   const res = await fetch(
-    `${getTelemetryApiUrl()}?path=telemetry/accel/latest&device_id=${encodeURIComponent(deviceId)}`,
+    buildContractUrl(getTelemetryApiUrl(), "telemetry/accel/latest", { device_id: deviceId }),
     { redirect: "follow" }
   );
   const json = await res.json();
@@ -333,7 +339,7 @@ async function apiGetAccelLatest(deviceId) {
  */
 async function apiGetAccelDevices() {
   const res = await fetch(
-    `${getTelemetryApiUrl()}?path=telemetry/accel/devices`,
+    buildContractUrl(getTelemetryApiUrl(), "telemetry/accel/devices"),
     { redirect: "follow" }
   );
   const json = await res.json();

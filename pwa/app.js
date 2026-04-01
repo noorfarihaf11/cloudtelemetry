@@ -328,13 +328,9 @@ async function generateQR() {
     // Render QR Code — backend returns qr_token only (not URL)
     const qrContainer = document.getElementById('qrcode');
     qrContainer.innerHTML = '';
-    const qrPayloadUrl = new URL('https://cloudtelemetry.local/checkin');
-    qrPayloadUrl.searchParams.set('token', result.qr_token);
-    qrPayloadUrl.searchParams.set('course_id', activeCourseId);
-    qrPayloadUrl.searchParams.set('session_id', activeSessionId);
 
     new QRCode(qrContainer, {
-      text: qrPayloadUrl.toString(),
+      text: result.qr_token,
       width: 200,
       height: 200,
       colorDark: '#1a1d27',
@@ -532,6 +528,10 @@ function handleScanResult(decodedText) {
       document.getElementById('manualToken').value = token;
       scannedCourseId = url.searchParams.get('course_id') || '';
       scannedSessionId = url.searchParams.get('session_id') || '';
+      const studentCourseEl = document.getElementById('studentCourseId');
+      const studentSessionEl = document.getElementById('studentSessionId');
+      if (studentCourseEl && scannedCourseId) studentCourseEl.value = scannedCourseId;
+      if (studentSessionEl && scannedSessionId) studentSessionEl.value = scannedSessionId;
     } else {
       document.getElementById('manualToken').value = decodedText;
     }
@@ -598,8 +598,13 @@ function captureAccelOnce() {
 async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
   const token = document.getElementById('manualToken').value.trim();
+  const selectedCourseId = document.getElementById('studentCourseId').value.trim();
+  const selectedSessionId = document.getElementById('studentSessionId').value.trim();
+  const courseId = scannedCourseId || selectedCourseId;
+  const sessionId = scannedSessionId || selectedSessionId;
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
+  if (!courseId || !sessionId) { showToast('Pilih Mata Kuliah dan Sesi terlebih dahulu!', 'error'); return; }
   if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
 
   setLoading('btnCheckin', true);
@@ -619,8 +624,8 @@ async function doCheckin() {
       qr_token: token,
       user_id: userId,
       device_id: getDeviceId(),
-      course_id: scannedCourseId || undefined,
-      session_id: scannedSessionId || undefined,
+      course_id: courseId,
+      session_id: sessionId,
     });
 
     // 3. Tunggu sensor selesai (GPS + Accel sudah jalan dari tadi)

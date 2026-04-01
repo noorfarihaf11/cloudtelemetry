@@ -125,7 +125,7 @@ async function loadLatest(){
   if(!DEVICE_ID){ setStatus("offline"); return; }
   setStatus("connecting");
   try{
-    const res  = await fetch(`${BASE_URL}?path=telemetry/accel/latest&device_id=${DEVICE_ID}`, { redirect:"follow" });
+    const res  = await fetch(`${BASE_URL}/telemetry/accel/latest?device_id=${DEVICE_ID}`, { redirect:"follow" });
     const json = await res.json();
     if(!json.ok){ setStatus("offline"); return; }
 
@@ -142,7 +142,7 @@ async function loadLatest(){
 
 async function loadDevices(){
   try{
-    const res  = await fetch(`${BASE_URL}?path=telemetry/accel/devices`, { redirect:"follow" });
+    const res  = await fetch(`${BASE_URL}/telemetry/accel/devices`, { redirect:"follow" });
     const json = await res.json();
     json.data.devices.forEach(id => {
       const opt = document.createElement("option");

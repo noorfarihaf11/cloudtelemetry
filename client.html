@@ -159,7 +159,7 @@ async function sendBatch(){
   try{
     setStatus("Mengirim " + payload.samples.length + " sampel...", "idle");
     
-    const res = await fetch(`${BASE_URL}?path=telemetry/accel`, {
+    const res = await fetch(`${BASE_URL}/telemetry/accel`, {
       method: "POST",
       redirect: "follow",
       // ✅ hapus Content-Type header — ini penyebab CORS preflight gagal di GAS

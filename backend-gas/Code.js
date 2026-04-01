@@ -21,9 +21,26 @@ const HEADERS = {
 const QR_TOKEN_TTL_MS = 30 * 1000; 
 const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
 
+function normalizeRequestPath(value) {
+    return String(value || '').replace(/^\/+|\/+$/g, '');
+}
+
+function resolveRequestPath(e, fallbackPath) {
+    const fallback = normalizeRequestPath(fallbackPath);
+    if (!e) return fallback;
+
+    const pathInfo = normalizeRequestPath(e.pathInfo);
+    if (pathInfo) return pathInfo;
+
+    const queryPath = normalizeRequestPath(e.parameter && e.parameter.path);
+    if (queryPath) return queryPath;
+
+    return fallback;
+}
+
 function doGet(e) {
     try {
-        const path = (e.parameter && e.parameter.path) ? e.parameter.path : 'ui';
+        const path = resolveRequestPath(e, 'ui');
         const params = e ? e.parameter : {};
 
         switch (path) {
@@ -61,7 +78,7 @@ function doGet(e) {
 
 function doPost(e) {
     try {
-        const path = (e.parameter && e.parameter.path) ? e.parameter.path : '';
+        const path = resolveRequestPath(e, '');
         const body = e && e.postData ? JSON.parse(e.postData.contents) : {};
 
         switch (path) {
@@ -69,7 +86,9 @@ function doPost(e) {
             case 'presence/checkin': return sendSuccess(checkin(body));
             case 'sensor/accel/batch': return sendSuccess(batchAccel(body));
             case 'telemetry/accel': return sendSuccess(telemetryAccelBatch(body));
+            case 'telemetry/gps': return sendSuccess(logGPS(body));
             case 'sensor/gps': return sendSuccess(logGPS(body));
+            case 'telemetry/gps/live/stop': return sendSuccess(stopLiveGPS(body));
             case 'sensor/gps/live/stop': return sendSuccess(stopLiveGPS(body));
             default: return sendError('Unknown endpoint');
         }
