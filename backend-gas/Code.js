@@ -41,6 +41,8 @@ function doGet(e) {
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
             case 'telemetry/accel/latest':
                 return sendSuccess(accelLatest(params.device_id));
+            case 'telemetry/accel/devices':
+                return sendSuccess(accelDevices());
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi Dosen')
@@ -417,6 +419,19 @@ function accelLatest(deviceId) {
         }
     }
     throw new Error('device_not_found');
+}
+
+function accelDevices() {
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow < 2) {
+        return { devices: [] };
+    }
+
+    const rows = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const devices = [...new Set(rows.map(r => String(r[0] || '').trim()).filter(Boolean))];
+    return { devices: devices };
 }
 
 // ============================================================

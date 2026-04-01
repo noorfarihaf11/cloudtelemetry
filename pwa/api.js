@@ -2,13 +2,12 @@
 //  API Module — fetch() wrapper for GAS Backend v5
 // ═══════════════════════════════════════════════
 
-// BACKEND PRESENSI QR (backend-gas/)
-// URL deployment Google Apps Script untuk Presensi QR
+// BACKEND UTAMA (backend-gas/)
+// URL deployment Google Apps Script untuk Presensi QR + GPS + Accelerometer
 const DEFAULT_API_BASE = "https://script.google.com/macros/s/AKfycbyNepWGdF-dVMOBVnv_4JXS4Ik1e2MHP8Pp3e4zd45ARqpMujrxg3gmIQbjt7xbk7Yz3A/exec";
 
-// BACKEND TELEMETRY ACCEL (root Code.js)
-// GANTI URL ini dengan URL deployment GAS project root (cloudtelemetry)
-const DEFAULT_API_TELEMETRY = "https://script.google.com/macros/s/AKfycbxQMVQzZ-Gkc14pXD-rJGlssTPaVvTIjXb3bhNmeE-Jsyzex5STHs48y_AjRVtfB7h6-g/exec";
+// Default telemetry sekarang ikut backend utama agar cukup satu link GAS.
+const DEFAULT_API_TELEMETRY = DEFAULT_API_BASE;
 const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
 const SWAP_TEST_STORAGE_KEY = "swap_test_config_v1";
 const API_PROFILE_STORAGE_KEY = "active_api_profile";
@@ -74,12 +73,12 @@ function disableSwapTestProfile() {
 
 function canUseSwapTestProfile() {
   const config = getSwapTestConfig();
-  return Boolean(config.apiBase && config.apiTelemetry);
+  return Boolean(config.apiBase);
 }
 
 function enableSwapTestProfile() {
   if (!canUseSwapTestProfile()) {
-    throw new Error("Lengkapi URL GAS QR/GPS dan Accelerometer terlebih dahulu.");
+    throw new Error("Lengkapi minimal URL GAS utama terlebih dahulu.");
   }
   setActiveApiProfile("swap");
 }
@@ -94,8 +93,8 @@ function getApiBaseUrl() {
 
 function getTelemetryApiUrl() {
   const config = getSwapTestConfig();
-  if (getActiveApiProfile() === "swap" && config.apiTelemetry) {
-    return config.apiTelemetry;
+  if (getActiveApiProfile() === "swap") {
+    return config.apiTelemetry || config.apiBase || DEFAULT_API_TELEMETRY;
   }
   return DEFAULT_API_TELEMETRY;
 }
