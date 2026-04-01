@@ -26,9 +26,23 @@ function normalizeApiUrl(url) {
 
   try {
     const parsed = new URL(normalized);
+
+    if (parsed.hostname.includes("script.googleusercontent.com")) {
+      throw new Error("Gunakan URL GAS asli dari script.google.com/.../exec, bukan URL redirect script.googleusercontent.com.");
+    }
+
+    parsed.hash = "";
+    parsed.search = "";
+
+    const execPathMatch = parsed.pathname.match(/^(.*?\/(?:exec|dev))(?:\/.*)?$/);
+    if (!execPathMatch) {
+      throw new Error("Gunakan URL deployment Web App GAS yang berakhir dengan /exec atau /dev.");
+    }
+    parsed.pathname = execPathMatch[1];
+
     return parsed.toString();
   } catch (error) {
-    throw new Error("URL GAS tidak valid.");
+    throw new Error(error.message || "URL GAS tidak valid.");
   }
 }
 
@@ -151,10 +165,16 @@ async function fetchGasJson(baseUrl, path, options = {}) {
     headers = undefined,
   } = options;
 
-  const urls = [
-    buildContractUrl(baseUrl, path, params),
-    buildLegacyGasUrl(baseUrl, path, params),
-  ];
+  const isGoogleAppsScript = /(^|\.)script\.google\.com$/i.test(new URL(baseUrl).hostname);
+  const urls = isGoogleAppsScript
+    ? [
+        buildLegacyGasUrl(baseUrl, path, params),
+        buildContractUrl(baseUrl, path, params),
+      ]
+    : [
+        buildContractUrl(baseUrl, path, params),
+        buildLegacyGasUrl(baseUrl, path, params),
+      ];
 
   let lastError = null;
 
@@ -180,6 +200,13 @@ async function fetchGasJson(baseUrl, path, options = {}) {
     } catch (error) {
       lastError = error;
     }
+  }
+
+  const baseMessage = lastError && lastError.message ? String(lastError.message) : "Failed to fetch";
+  if (/Failed to fetch|NetworkError|Load failed/i.test(baseMessage)) {
+    throw new Error(
+      "Gagal menghubungi backend GAS. Pastikan link swap memakai URL script.google.com/.../exec, deployment Web App public (Anyone), dan bukan URL redirect script.googleusercontent.com."
+    );
   }
 
   throw lastError || new Error("Failed to fetch");

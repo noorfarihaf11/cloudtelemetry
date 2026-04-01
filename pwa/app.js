@@ -311,6 +311,11 @@ function stopPresenceSession() {
   if (qrResult) qrResult.style.display = 'none';
 }
 
+function shouldRetryGenerateQr(err) {
+  const message = String(err && err.message ? err.message : '');
+  return !/Gagal menghubungi backend GAS|URL deployment Web App GAS|script\.googleusercontent|\/exec atau \/dev/i.test(message);
+}
+
 async function generateQR() {
   if (!isPresenceRunning) return;
 
@@ -345,7 +350,7 @@ async function generateQR() {
     showToast('QR Token berhasil di-generate!', 'success');
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
-    if (isPresenceRunning) {
+    if (isPresenceRunning && shouldRetryGenerateQr(err)) {
       // Retry in 3 seconds on error
       setTimeout(() => generateQR(), 3000);
     }
