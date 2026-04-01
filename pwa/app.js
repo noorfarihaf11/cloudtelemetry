@@ -137,22 +137,20 @@ function openSwapTestView() {
 
 function getSwapTestInputValues() {
   const apiBaseInput = document.getElementById('swapApiBaseInput');
-  const apiTelemetryInput = document.getElementById('swapApiTelemetryInput');
+  const val = apiBaseInput ? apiBaseInput.value.trim() : '';
 
   return {
-    apiBase: apiBaseInput ? apiBaseInput.value.trim() : '',
-    apiTelemetry: apiTelemetryInput ? apiTelemetryInput.value.trim() : ''
+    apiBase: val,
+    apiTelemetry: val
   };
 }
 
 function refreshSwapTestPanel() {
   const config = getSwapTestConfig();
   const apiBaseInput = document.getElementById('swapApiBaseInput');
-  const apiTelemetryInput = document.getElementById('swapApiTelemetryInput');
   const statusText = document.getElementById('swapStatusText');
 
   if (apiBaseInput) apiBaseInput.value = config.apiBase || '';
-  if (apiTelemetryInput) apiTelemetryInput.value = config.apiTelemetry || '';
 
   if (statusText) {
     statusText.textContent =
