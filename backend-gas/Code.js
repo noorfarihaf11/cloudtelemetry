@@ -411,29 +411,45 @@ function getGpsPolyline(deviceId, from, to) {
 // ============================================================
 
 function telemetryAccelBatch(body) {
-    if (!body.device_id || !body.samples) throw new Error('Missing fields: device_id, samples');
+    const deviceId = normalizeDeviceId(body.device_id);
+    if (!deviceId) throw new Error('Missing field: device_id');
+    if (!Array.isArray(body.samples)) throw new Error('Missing field: samples');
+
     const sheet = getOrCreateSheet(SHEET.ACCEL);
     const batchTs = body.ts || nowISO();
-    
+
     body.samples.forEach(s => {
-        sheet.appendRow([body.device_id, s.x, s.y, s.z, s.t, batchTs, nowISO()]);
+        if (!s || !s.t || s.x === undefined || s.y === undefined || s.z === undefined) {
+            throw new Error('Invalid sample payload');
+        }
+
+        sheet.appendRow([
+            deviceId,
+            Number(s.x),
+            Number(s.y),
+            Number(s.z),
+            s.t,
+            batchTs,
+            nowISO()
+        ]);
     });
     
     return { accepted: body.samples.length };
 }
 
 function accelLatest(deviceId) {
-    if (!deviceId) throw new Error('Missing field: device_id');
+    const normalizedDeviceId = normalizeDeviceId(deviceId);
+    if (!normalizedDeviceId) throw new Error('Missing field: device_id');
     const sheet = getOrCreateSheet(SHEET.ACCEL);
     const rows = sheet.getDataRange().getValues();
     
     for (let i = rows.length - 1; i >= 1; i--) {
-        if (String(rows[i][0]) === String(deviceId)) {
+        if (normalizeDeviceId(rows[i][0]) === normalizedDeviceId) {
             return {
                 t: rows[i][4],
-                x: rows[i][1],
-                y: rows[i][2],
-                z: rows[i][3]
+                x: Number(rows[i][1]),
+                y: Number(rows[i][2]),
+                z: Number(rows[i][3])
             };
         }
     }
