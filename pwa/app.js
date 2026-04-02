@@ -635,7 +635,6 @@ async function doCheckin() {
   const sessionId = scannedSessionId || scannedPayload.sessionId;
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
-  if (!courseId || !sessionId) { showToast('Scan QR terlebih dahulu agar mata kuliah & sesi terdeteksi!', 'error'); return; }
   if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
 
   setLoading('btnCheckin', true);
