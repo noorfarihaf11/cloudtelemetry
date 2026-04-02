@@ -520,30 +520,63 @@ function scanFromFile(input) {
 }
 
 // ─── HANDLE SCAN RESULT ───
-// Backend QR encodes just the token string directly
-function handleScanResult(decodedText) {
-  scannedCourseId = '';
-  scannedSessionId = '';
+function parseScannedQrPayload(decodedText) {
+  const raw = String(decodedText || '').trim();
+  if (!raw) {
+    return { token: '', courseId: '', sessionId: '' };
+  }
 
   try {
-    // Try parsing as URL first (backward compat)
-    const url = new URL(decodedText);
-    const token = url.searchParams.get('token');
-    if (token) {
-      document.getElementById('manualToken').value = token;
-      scannedCourseId = url.searchParams.get('course_id') || '';
-      scannedSessionId = url.searchParams.get('session_id') || '';
-      const studentCourseEl = document.getElementById('studentCourseId');
-      const studentSessionEl = document.getElementById('studentSessionId');
-      if (studentCourseEl && scannedCourseId) studentCourseEl.value = scannedCourseId;
-      if (studentSessionEl && scannedSessionId) studentSessionEl.value = scannedSessionId;
-    } else {
-      document.getElementById('manualToken').value = decodedText;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const token = String(parsed.qr_token || parsed.token || '').trim();
+      if (token) {
+        return {
+          token,
+          courseId: String(parsed.course_id || '').trim(),
+          sessionId: String(parsed.session_id || '').trim(),
+        };
+      }
     }
   } catch (e) {
-    // Not a URL — it's a raw token string (expected case)
-    document.getElementById('manualToken').value = decodedText;
+    // ignore; not a raw JSON QR payload
   }
+
+  try {
+    const url = new URL(raw);
+    const token = String(url.searchParams.get('token') || url.searchParams.get('qr_token') || '').trim();
+    if (token) {
+      return {
+        token,
+        courseId: String(url.searchParams.get('course_id') || '').trim(),
+        sessionId: String(url.searchParams.get('session_id') || '').trim(),
+      };
+    }
+  } catch (e) {
+    // ignore; not a URL QR payload
+  }
+
+  return { token: raw, courseId: '', sessionId: '' };
+}
+
+function applyScannedQrPayload(payload) {
+  const token = String(payload && payload.token ? payload.token : '').trim();
+  const courseId = String(payload && payload.courseId ? payload.courseId : '').trim();
+  const sessionId = String(payload && payload.sessionId ? payload.sessionId : '').trim();
+  const manualTokenEl = document.getElementById('manualToken');
+  const studentCourseEl = document.getElementById('studentCourseId');
+  const studentSessionEl = document.getElementById('studentSessionId');
+
+  scannedCourseId = courseId;
+  scannedSessionId = sessionId;
+
+  if (manualTokenEl) manualTokenEl.value = token;
+  if (studentCourseEl && courseId) studentCourseEl.value = courseId;
+  if (studentSessionEl && sessionId) studentSessionEl.value = sessionId;
+}
+
+function handleScanResult(decodedText) {
+  applyScannedQrPayload(parseScannedQrPayload(decodedText));
   showToast('QR berhasil dipindai!', 'success');
 }
 
@@ -602,11 +635,12 @@ function captureAccelOnce() {
 
 async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
-  const token = document.getElementById('manualToken').value.trim();
+  const scannedPayload = parseScannedQrPayload(document.getElementById('manualToken').value.trim());
+  const token = scannedPayload.token;
   const selectedCourseId = document.getElementById('studentCourseId').value.trim();
   const selectedSessionId = document.getElementById('studentSessionId').value.trim();
-  const courseId = scannedCourseId || selectedCourseId;
-  const sessionId = scannedSessionId || selectedSessionId;
+  const courseId = scannedCourseId || scannedPayload.courseId || selectedCourseId;
+  const sessionId = scannedSessionId || scannedPayload.sessionId || selectedSessionId;
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
   if (!courseId || !sessionId) { showToast('Pilih Mata Kuliah dan Sesi terlebih dahulu!', 'error'); return; }
