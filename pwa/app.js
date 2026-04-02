@@ -635,13 +635,14 @@ async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
   const scannedPayload = parseScannedQrPayload(document.getElementById('manualToken').value.trim());
   const token = scannedPayload.token;
-  const selectedCourseId = document.getElementById('studentCourseId').value.trim();
-  const selectedSessionId = document.getElementById('studentSessionId').value.trim();
-  const courseId = scannedCourseId || scannedPayload.courseId || selectedCourseId;
-  const sessionId = scannedSessionId || scannedPayload.sessionId || selectedSessionId;
+
+  // course_id & session_id opsional — backend auto-detect dari QR token
+  const studentCourseEl = document.getElementById('studentCourseId');
+  const studentSessionEl = document.getElementById('studentSessionId');
+  const courseId = scannedCourseId || scannedPayload.courseId || (studentCourseEl ? studentCourseEl.value.trim() : '');
+  const sessionId = scannedSessionId || scannedPayload.sessionId || (studentSessionEl ? studentSessionEl.value.trim() : '');
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
-  if (!courseId || !sessionId) { showToast('Pilih Mata Kuliah dan Sesi terlebih dahulu!', 'error'); return; }
   if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
 
   setLoading('btnCheckin', true);
