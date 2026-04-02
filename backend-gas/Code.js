@@ -58,8 +58,6 @@ function doGet(e) {
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
             case 'telemetry/accel/latest':
                 return sendSuccess(accelLatest(params.device_id));
-            case 'telemetry/accel/devices':
-                return sendSuccess(accelDevices());
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi Dosen')

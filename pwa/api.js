@@ -189,7 +189,20 @@ async function fetchGasJson(baseUrl, path, options = {}) {
       });
 
       const text = await res.text();
-      const json = JSON.parse(text);
+
+      // Guard: response must look like JSON before parsing
+      const trimmed = text.trim();
+      if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) {
+        // Response is not JSON (e.g., URL-encoded query string from GAS redirect)
+        lastError = new Error(
+          "Backend GAS mengembalikan respons bukan JSON. " +
+          "Kemungkinan deployment GAS belum benar atau endpoint belum ada. " +
+          "(Respons dimulai dengan: \"" + trimmed.substring(0, 30) + "...\")"
+        );
+        continue;
+      }
+
+      const json = JSON.parse(trimmed);
 
       if (i === 0 && (isGasDefaultPayload(json) || isEndpointNotFoundPayload(json))) {
         lastError = new Error(json.error || json.data.message || "Endpoint fallback");
