@@ -562,15 +562,11 @@ function applyScannedQrPayload(payload) {
   const courseId = String(payload && payload.courseId ? payload.courseId : '').trim();
   const sessionId = String(payload && payload.sessionId ? payload.sessionId : '').trim();
   const manualTokenEl = document.getElementById('manualToken');
-  const studentCourseEl = document.getElementById('studentCourseId');
-  const studentSessionEl = document.getElementById('studentSessionId');
 
   scannedCourseId = courseId;
   scannedSessionId = sessionId;
 
   if (manualTokenEl) manualTokenEl.value = token;
-  if (studentCourseEl && courseId) studentCourseEl.value = courseId;
-  if (studentSessionEl && sessionId) studentSessionEl.value = sessionId;
 }
 
 function handleScanResult(decodedText) {
@@ -635,14 +631,11 @@ async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
   const scannedPayload = parseScannedQrPayload(document.getElementById('manualToken').value.trim());
   const token = scannedPayload.token;
-
-  // course_id & session_id opsional — backend auto-detect dari QR token
-  const studentCourseEl = document.getElementById('studentCourseId');
-  const studentSessionEl = document.getElementById('studentSessionId');
-  const courseId = scannedCourseId || scannedPayload.courseId || (studentCourseEl ? studentCourseEl.value.trim() : '');
-  const sessionId = scannedSessionId || scannedPayload.sessionId || (studentSessionEl ? studentSessionEl.value.trim() : '');
+  const courseId = scannedCourseId || scannedPayload.courseId;
+  const sessionId = scannedSessionId || scannedPayload.sessionId;
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
+  if (!courseId || !sessionId) { showToast('Scan QR terlebih dahulu agar mata kuliah & sesi terdeteksi!', 'error'); return; }
   if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
 
   setLoading('btnCheckin', true);
