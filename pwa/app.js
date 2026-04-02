@@ -1449,10 +1449,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (devIdEl) devIdEl.textContent = getDeviceId();
   refreshSwapTestPanel();
 });
-  }
 
   // Show device ID
   const devIdEl = document.getElementById('deviceIdDisplay');
   if (devIdEl) devIdEl.textContent = getDeviceId();
   refreshSwapTestPanel();
-});
+
