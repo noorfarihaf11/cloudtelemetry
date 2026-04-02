@@ -527,12 +527,12 @@ function parseScannedQrPayload(decodedText) {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const token = String(parsed.qr_token || parsed.token || '').trim();
+      const token = String(parsed.qr_token || parsed.token || parsed.t || '').trim();
       if (token) {
         return {
           token,
-          courseId: String(parsed.course_id || '').trim(),
-          sessionId: String(parsed.session_id || '').trim(),
+          courseId: String(parsed.course_id || parsed.c || '').trim(),
+          sessionId: String(parsed.session_id || parsed.s || '').trim(),
         };
       }
     }
