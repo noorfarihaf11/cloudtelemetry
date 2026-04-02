@@ -299,6 +299,30 @@ async function apiCheckinPresence(data) {
 }
 
 /**
+ * Check-in Presensi ke GAS URL tertentu (dari QR Code)
+ * Dipakai saat QR dari kelompok lain, agar check-in ke backend yang benar
+ * @param {string} gasUrl - URL GAS backend dari QR
+ * @param {Object} data - { qr_token, user_id, device_id, course_id, session_id }
+ * @returns {Promise<{presence_id, status}>}
+ */
+async function apiCheckinWithGasUrl(gasUrl, data) {
+  const json = await fetchGasJson(gasUrl, "presence/checkin", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({
+      qr_token: data.qr_token,
+      user_id: data.user_id,
+      device_id: data.device_id,
+      course_id: data.course_id,
+      session_id: data.session_id,
+      ts: new Date().toISOString(),
+    }),
+  });
+  if (!json.ok) throw new Error(json.error || "Unknown error");
+  return json.data;
+}
+
+/**
  * Cek Status Presensi (Mahasiswa)
  * @param {Object} params - { user_id, course_id, session_id }
  * @returns {Promise<{status, last_ts?}>}
