@@ -115,47 +115,116 @@ function processGenerateQR(payload) {
     }
 }
 
+// function checkin(body) {
+//     // Scanner cuma perlu kirim user_id dan qr_token
+//     if (!body.user_id || !body.qr_token) throw new Error('Missing fields');
+    
+//     const tokensSheet = getOrCreateSheet(SHEET.TOKENS);
+//     const tokensData = tokensSheet.getDataRange().getValues();
+//     let tokenValid = false;
+//     let activeCourseId = '';
+//     let activeSessionId = '';
+//     const checkTime = body.ts ? new Date(body.ts) : new Date();
+
+//     // 1. Cari token di database untuk mendeteksi Mata Kuliah & Sesi secara otomatis
+//     for (let i = 1; i < tokensData.length; i++) {
+//         if (tokensData[i][0] === body.qr_token) {
+//             if (checkTime > new Date(tokensData[i][4])) throw new Error('token_expired');
+//             tokenValid = true;
+//             activeCourseId = tokensData[i][1]; // Ambil nama matkul dari database
+//             activeSessionId = tokensData[i][2]; // Ambil sesi dari database
+//             break; 
+//         }
+//     }
+    
+//     if (!tokenValid) throw new Error('token_invalid');
+
+//     // 2. Mencegah absen ganda di matkul & sesi yang sama
+//     const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
+//     const presenceData = presenceSheet.getDataRange().getValues();
+
+//     for (let i = 1; i < presenceData.length; i++) {
+//         if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
+//             return { presence_id: presenceData[i][0], status: 'already_checked_in' };
+//         }
+//     }
+
+//     // 3. Catat Kehadiran menggunakan matkul & sesi yang terdeteksi
+//     const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
+//     presenceSheet.appendRow([presenceId, body.user_id, body.device_id || 'web-scanner', activeCourseId, activeSessionId, body.qr_token, checkTime.toISOString(), nowISO()]);
+    
+//     // return { presence_id: presenceId, status: 'checked_in' };
+//     return { presence_id: presenceId, status: 'checked_in', debug: debugRows };
+// }
+
+// fix function checkin 
 function checkin(body) {
-    // Scanner cuma perlu kirim user_id dan qr_token
     if (!body.user_id || !body.qr_token) throw new Error('Missing fields');
-    
-    const tokensSheet = getOrCreateSheet(SHEET.TOKENS);
-    const tokensData = tokensSheet.getDataRange().getValues();
-    let tokenValid = false;
-    let activeCourseId = '';
-    let activeSessionId = '';
-    const checkTime = body.ts ? new Date(body.ts) : new Date();
 
-    // 1. Cari token di database untuk mendeteksi Mata Kuliah & Sesi secara otomatis
-    for (let i = 1; i < tokensData.length; i++) {
-        if (tokensData[i][0] === body.qr_token) {
-            if (checkTime > new Date(tokensData[i][4])) throw new Error('token_expired');
-            tokenValid = true;
-            activeCourseId = tokensData[i][1]; // Ambil nama matkul dari database
-            activeSessionId = tokensData[i][2]; // Ambil sesi dari database
-            break; 
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000); 
+
+    try {
+        const tokensSheet = getOrCreateSheet(SHEET.TOKENS);
+        const tokensData = tokensSheet.getDataRange().getValues();
+        let tokenValid = false;
+        let activeCourseId = '';
+        let activeSessionId = '';
+        const checkTime = body.ts ? new Date(body.ts) : new Date();
+
+        for (let i = 1; i < tokensData.length; i++) {
+            if (tokensData[i][0] === body.qr_token) {
+                if (checkTime > new Date(tokensData[i][4])) throw new Error('token_expired');
+                tokenValid = true;
+                activeCourseId = tokensData[i][1];
+                activeSessionId = tokensData[i][2];
+                break; 
+            }
         }
-    }
-    
-    if (!tokenValid) throw new Error('token_invalid');
+        
+        if (!tokenValid) throw new Error('token_invalid');
 
-    // 2. Mencegah absen ganda di matkul & sesi yang sama
-    const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
-    const presenceData = presenceSheet.getDataRange().getValues();
-
-    for (let i = 1; i < presenceData.length; i++) {
-        if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
-            return { presence_id: presenceData[i][0], status: 'already_checked_in' };
+        const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
+        const presenceData = presenceSheet.getDataRange().getValues();
+        for (let i = 1; i < presenceData.length; i++) {
+            if (String(presenceData[i][1]).trim() === String(body.user_id).trim() && 
+                String(presenceData[i][3]).trim() === String(activeCourseId).trim() && 
+                String(presenceData[i][4]).trim() === String(activeSessionId).trim()) {
+                return { presence_id: presenceData[i][0], status: 'already_checked_in' };
+            }
         }
-    }
 
-    // 3. Catat Kehadiran menggunakan matkul & sesi yang terdeteksi
-    const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
-    presenceSheet.appendRow([presenceId, body.user_id, body.device_id || 'web-scanner', activeCourseId, activeSessionId, body.qr_token, checkTime.toISOString(), nowISO()]);
-    
-    // return { presence_id: presenceId, status: 'checked_in' };
-    return { presence_id: presenceId, status: 'checked_in', debug: debugRows };
+        const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
+        presenceSheet.appendRow([presenceId, body.user_id, body.device_id || 'web-scanner', activeCourseId, activeSessionId, body.qr_token, checkTime.toISOString(), nowISO()]);
+        
+        return { presence_id: presenceId, status: 'checked_in' };
+
+    } finally {
+        lock.releaseLock();
+    }
 }
+
+// function debugging checkin 
+// function debugCheckin() {
+//     const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
+//     const presenceData = presenceSheet.getDataRange().getValues();
+    
+//     const userId = '434231024';
+//     const courseId = 'coba-cloud-c2';
+//     const sessionId = 'sesi-2';
+    
+//     for (let i = 1; i < presenceData.length; i++) {
+//         const rowUserId = String(presenceData[i][1]).trim();
+//         const rowCourseId = String(presenceData[i][3]).trim();
+//         const rowSessionId = String(presenceData[i][4]).trim();
+        
+//         Logger.log('Row ' + i + ':');
+//         Logger.log('user_id match: ' + (rowUserId === userId) + ' | "' + rowUserId + '" vs "' + userId + '"');
+//         Logger.log('course_id match: ' + (rowCourseId === courseId) + ' | "' + rowCourseId + '" vs "' + courseId + '"');
+//         Logger.log('session_id match: ' + (rowSessionId === sessionId) + ' | "' + rowSessionId + '" vs "' + sessionId + '"');
+//     }
+// }
+
 
 function processCheckinUI(payload) {
     try {
