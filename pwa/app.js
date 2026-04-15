@@ -333,7 +333,11 @@ async function generateQR() {
     qrContainer.innerHTML = '';
 
     new QRCode(qrContainer, {
-      text: result.qr_token,
+    text: JSON.stringify({
+      qr_token: result.qr_token,
+      course_id: activeCourseId,
+      session_id: activeSessionId,
+    }),
       width: 200,
       height: 200,
       colorDark: '#1a1d27',
