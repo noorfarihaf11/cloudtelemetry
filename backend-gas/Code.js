@@ -142,7 +142,13 @@ function checkin(body) {
     // 2. Mencegah absen ganda di matkul & sesi yang sama
     const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
     const presenceData = presenceSheet.getDataRange().getValues();
-    
+
+    // for (let i = 1; i < presenceData.length; i++) {
+    //     if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
+    //         return { presence_id: presenceData[i][0], status: 'already_checked_in' };
+    //     }
+    // }
+
     // DEBUG: kumpulkan info untuk dikirim ke client
 const debugRows = [];
 for (let i = 1; i < presenceData.length; i++) {
@@ -155,25 +161,19 @@ for (let i = 1; i < presenceData.length; i++) {
         match_course: presenceData[i][3] === activeCourseId,
         match_session: presenceData[i][4] === activeSessionId,
     });
-    if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
+    if (presenceData[i][1] === body.user_id && 
+        presenceData[i][3] === activeCourseId && 
+        presenceData[i][4] === activeSessionId) {
         return { presence_id: presenceData[i][0], status: 'already_checked_in', debug: debugRows };
     }
 }
-
-// Kalau sampai sini, tidak ketemu duplikat — kirim debug juga
-return { status: 'no_duplicate_found', debug: debugRows, incoming: { user_id: body.user_id, course_id: activeCourseId, session_id: activeSessionId } };
-
-    for (let i = 1; i < presenceData.length; i++) {
-        if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
-            return { presence_id: presenceData[i][0], status: 'already_checked_in' };
-        }
-    }
 
     // 3. Catat Kehadiran menggunakan matkul & sesi yang terdeteksi
     const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
     presenceSheet.appendRow([presenceId, body.user_id, body.device_id || 'web-scanner', activeCourseId, activeSessionId, body.qr_token, checkTime.toISOString(), nowISO()]);
     
-    return { presence_id: presenceId, status: 'checked_in' };
+    // return { presence_id: presenceId, status: 'checked_in' };
+    return { presence_id: presenceId, status: 'checked_in', debug: debugRows };
 }
 
 function processCheckinUI(payload) {
