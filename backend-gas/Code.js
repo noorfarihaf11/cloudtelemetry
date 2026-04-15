@@ -142,6 +142,27 @@ function checkin(body) {
     // 2. Mencegah absen ganda di matkul & sesi yang sama
     const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
     const presenceData = presenceSheet.getDataRange().getValues();
+    
+    // DEBUG: kumpulkan info untuk dikirim ke client
+const debugRows = [];
+for (let i = 1; i < presenceData.length; i++) {
+    debugRows.push({
+        row: i,
+        user_id: presenceData[i][1],
+        course_id: presenceData[i][3],
+        session_id: presenceData[i][4],
+        match_user: presenceData[i][1] === body.user_id,
+        match_course: presenceData[i][3] === activeCourseId,
+        match_session: presenceData[i][4] === activeSessionId,
+    });
+    if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
+        return { presence_id: presenceData[i][0], status: 'already_checked_in', debug: debugRows };
+    }
+}
+
+// Kalau sampai sini, tidak ketemu duplikat — kirim debug juga
+return { status: 'no_duplicate_found', debug: debugRows, incoming: { user_id: body.user_id, course_id: activeCourseId, session_id: activeSessionId } };
+
     for (let i = 1; i < presenceData.length; i++) {
         if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
             return { presence_id: presenceData[i][0], status: 'already_checked_in' };
