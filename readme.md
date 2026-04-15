@@ -1,8 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CloudTelemetry – Backend Google Apps Script + PWA Client
+Project ini adalah sistem presensi, telemetry, dan maps berbasis cloud dengan arsitektur:
+1. Backend utama: Google Apps Script (GAS)
+2. Database: Google Sheets
+3. Client: Progressive Web App (PWA) Vanilla JS
+Fokus utama sistem ini ada di backend serverless menggunakan GAS sebagai REST API.
 
-## Getting Started
+## Arsitektur Sistem
+```bash
+PWA Client (Frontend)
+# next
+REST API Google Apps Script (GAS)
+# next
+Google Sheets (Database)
+```
 
-First, run the development server:
+## Backend Utama (Google Apps Script)
+Backend ini dibangun menggunakan Google Apps Script sebagai serverless REST API.
+### Base URL API
+```bash
+QR = https://docs.google.com/spreadsheets/d/1BxNXy6JwtlsV07_yg7u30OcNe5skqGH8hkzHiwxR5zw/edit?usp=drivesdk
+
+Telemetry: https://docs.google.com/spreadsheets/d/1X6Svgav9Cmfr3OGdfGrxkNgPRuIbC8xR5aRcOQt6-Aw/edit?usp=sharing
+```
+
+## Menjalankan Code di Lokal
+Pertama, jalankan development server:
 
 ```bash
 npm run dev
@@ -14,23 +36,24 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000) dengan browser Anda untuk melihat hasilnya.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Endpoint API (GAS Backend)
+Backend ini dibangun menggunakan Google Apps Script sebagai serverless REST API.
+### Presensi QR (Server Logic di GAS)
+1. POST /presence/qr/generate → generate QR dari server
+2. POST /presence/checkin → validasi & proses check-in
+3. GET /presence/status → cek status presensi user
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Sensor Accelerometer (Processing di GAS)
+1. POST /telemetry/accel → simpan data sensor ke Sheets
+2. GET /telemetry/accel/latest → ambil data terakhir
 
-## Learn More
+### GPS Tracking (Managed by GAS)
+1. POST /telemetry/gps → update lokasi device
+2. GET /telemetry/gps/latest → ambil posisi terakhir
+3. GET /telemetry/gps/history → ambil riwayat tracking
 
-To learn more about Next.js, take a look at the following resources:
+#### Kelompok 3
+#### C1
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
