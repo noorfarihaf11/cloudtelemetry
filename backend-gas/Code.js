@@ -143,30 +143,11 @@ function checkin(body) {
     const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
     const presenceData = presenceSheet.getDataRange().getValues();
 
-    // for (let i = 1; i < presenceData.length; i++) {
-    //     if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
-    //         return { presence_id: presenceData[i][0], status: 'already_checked_in' };
-    //     }
-    // }
-
-    // DEBUG: kumpulkan info untuk dikirim ke client
-const debugRows = [];
-for (let i = 1; i < presenceData.length; i++) {
-    debugRows.push({
-        row: i,
-        user_id: presenceData[i][1],
-        course_id: presenceData[i][3],
-        session_id: presenceData[i][4],
-        match_user: presenceData[i][1] === body.user_id,
-        match_course: presenceData[i][3] === activeCourseId,
-        match_session: presenceData[i][4] === activeSessionId,
-    });
-    if (presenceData[i][1] === body.user_id && 
-        presenceData[i][3] === activeCourseId && 
-        presenceData[i][4] === activeSessionId) {
-        return { presence_id: presenceData[i][0], status: 'already_checked_in', debug: debugRows };
+    for (let i = 1; i < presenceData.length; i++) {
+        if (presenceData[i][1] === body.user_id && presenceData[i][3] === activeCourseId && presenceData[i][4] === activeSessionId) {
+            return { presence_id: presenceData[i][0], status: 'already_checked_in' };
+        }
     }
-}
 
     // 3. Catat Kehadiran menggunakan matkul & sesi yang terdeteksi
     const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();

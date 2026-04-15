@@ -663,7 +663,7 @@ async function doCheckin() {
     });
 
     // TAMBAH INI
-    console.log('DEBUG RESULT:', result);
+    // console.log('DEBUG RESULT:', result);
 
     // 3. Tunggu sensor selesai (GPS + Accel sudah jalan dari tadi)
     const [gpsData, accelSamples] = await Promise.all([gpsPromise, accelPromise]);
