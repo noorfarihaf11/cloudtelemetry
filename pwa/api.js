@@ -36,7 +36,7 @@ function normalizeApiUrl(url) {
 
     const execPathMatch = parsed.pathname.match(/^(.*?\/(?:exec|dev))(?:\/.*)?$/);
     if (!execPathMatch) {
-      throw new Error("Gunakan URL deployment Web App GAS yang berakhir dengan /exec atau /dev. Jika yang Anda punya sudah berbentuk /exec/endpoint, tempel saja; aplikasi akan menormalkannya ke base URL.");
+      throw new Error("Gunakan URL deployment Web App GAS yang berakhir dengan /exec atau /dev.");
     }
     parsed.pathname = execPathMatch[1];
 
@@ -176,6 +176,17 @@ async function fetchGasJson(baseUrl, path, options = {}) {
         buildLegacyGasUrl(baseUrl, path, params),
       ];
 
+  return fetchJsonFromCandidateUrls(urls, options);
+}
+
+async function fetchJsonFromCandidateUrls(urls, options = {}) {
+  const {
+    method = "GET",
+    cache = undefined,
+    headers = undefined,
+    body = undefined,
+  } = options;
+
   let lastError = null;
 
   for (let i = 0; i < urls.length; i++) {
@@ -223,6 +234,16 @@ async function fetchGasJson(baseUrl, path, options = {}) {
   }
 
   throw lastError || new Error("Failed to fetch");
+}
+
+function buildDirectUrlWithParams(url, params = {}) {
+  const target = new URL(url);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      target.searchParams.set(k, v);
+    }
+  });
+  return target.toString();
 }
 
 /**
