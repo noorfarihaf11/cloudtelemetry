@@ -36,7 +36,7 @@ function normalizeApiUrl(url) {
 
     const execPathMatch = parsed.pathname.match(/^(.*?\/(?:exec|dev))(?:\/.*)?$/);
     if (!execPathMatch) {
-      throw new Error("Gunakan URL deployment Web App GAS yang berakhir dengan /exec atau /dev.");
+      throw new Error("Gunakan URL deployment Web App GAS yang berakhir dengan /exec atau /dev. Jika yang Anda punya sudah berbentuk /exec/endpoint, tempel saja; aplikasi akan menormalkannya ke base URL.");
     }
     parsed.pathname = execPathMatch[1];
 
@@ -168,8 +168,8 @@ async function fetchGasJson(baseUrl, path, options = {}) {
   const isGoogleAppsScript = /(^|\.)script\.google\.com$/i.test(new URL(baseUrl).hostname);
   const urls = isGoogleAppsScript
     ? [
-        buildLegacyGasUrl(baseUrl, path, params),
         buildContractUrl(baseUrl, path, params),
+        buildLegacyGasUrl(baseUrl, path, params),
       ]
     : [
         buildContractUrl(baseUrl, path, params),
