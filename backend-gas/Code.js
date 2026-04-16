@@ -197,7 +197,9 @@ function getPresenceStatus(userId, courseId, sessionId) {
     const sheet = getOrCreateSheet(SHEET.PRESENCE);
     const data = sheet.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === userId && data[i][3] === courseId && data[i][4] === sessionId) {
+        if (String(data[i][1]).trim() === String(userId).trim() && 
+            String(data[i][3]).trim() === String(courseId).trim() && 
+            String(data[i][4]).trim() === String(sessionId).trim()) {
             return { user_id: userId, course_id: courseId, session_id: sessionId, status: 'checked_in', last_ts: data[i][6] };
         }
     }
