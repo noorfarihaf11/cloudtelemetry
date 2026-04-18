@@ -21,6 +21,24 @@ const HEADERS = {
 const QR_TOKEN_TTL_MS = 30 * 1000; 
 const LIVE_LOC_ACTIVE_WINDOW_SEC = 15;
 
+function sanitizePresenceScopeValue(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .trim()
+        .replace(/\s+/g, ' ');
+}
+
+function normalizePresenceScopeValue(value) {
+    return sanitizePresenceScopeValue(value).toLowerCase();
+}
+
+function sanitizeUserId(value) {
+    return String(value === null || value === undefined ? '' : value).trim();
+}
+
+function presenceScopeMatches(left, right) {
+    return normalizePresenceScopeValue(left) === normalizePresenceScopeValue(right);
+}
+
 function normalizeRequestPath(value) {
     return String(value || '').replace(/^\/+|\/+$/g, '');
 }
@@ -96,13 +114,15 @@ function doPost(e) {
 }
 
 function generateQRToken(body) {
-    if (!body.course_id || !body.session_id) throw new Error('Missing fields');
+    const courseId = sanitizePresenceScopeValue(body.course_id);
+    const sessionId = sanitizePresenceScopeValue(body.session_id);
+    if (!courseId || !sessionId) throw new Error('Missing fields');
     const sheet = getOrCreateSheet(SHEET.TOKENS);
     const now = body.ts ? new Date(body.ts) : new Date();
     const expiresAt = new Date(now.getTime() + QR_TOKEN_TTL_MS);
     const qrToken = 'TKN-' + Utilities.getUuid().substring(0, 6).toUpperCase();
     
-    sheet.appendRow([qrToken, body.course_id, body.session_id, now.toISOString(), expiresAt.toISOString(), false]);
+    sheet.appendRow([qrToken, courseId, sessionId, now.toISOString(), expiresAt.toISOString(), false]);
     return { qr_token: qrToken, expires_at: expiresAt.toISOString() };
 }
 
@@ -117,7 +137,9 @@ function processGenerateQR(payload) {
 
 // fix function checkin 
 function checkin(body) {
-    if (!body.user_id || !body.qr_token) throw new Error('Missing fields');
+    const userId = sanitizeUserId(body.user_id);
+    const qrToken = String(body.qr_token || '').trim();
+    if (!userId || !qrToken) throw new Error('Missing fields');
 
     const lock = LockService.getScriptLock();
     lock.waitLock(10000); 
@@ -131,11 +153,11 @@ function checkin(body) {
         const checkTime = body.ts ? new Date(body.ts) : new Date();
 
         for (let i = 1; i < tokensData.length; i++) {
-            if (tokensData[i][0] === body.qr_token) {
+            if (String(tokensData[i][0] || '').trim() === qrToken) {
                 if (checkTime > new Date(tokensData[i][4])) throw new Error('token_expired');
                 tokenValid = true;
-                activeCourseId = tokensData[i][1];
-                activeSessionId = tokensData[i][2];
+                activeCourseId = sanitizePresenceScopeValue(tokensData[i][1]);
+                activeSessionId = sanitizePresenceScopeValue(tokensData[i][2]);
                 break; 
             }
         }
@@ -145,15 +167,15 @@ function checkin(body) {
         const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
         const presenceData = presenceSheet.getDataRange().getValues();
         for (let i = 1; i < presenceData.length; i++) {
-            if (String(presenceData[i][1]).trim() === String(body.user_id).trim() && 
-                String(presenceData[i][3]).trim() === String(activeCourseId).trim() && 
-                String(presenceData[i][4]).trim() === String(activeSessionId).trim()) {
+            if (sanitizeUserId(presenceData[i][1]) === userId && 
+                presenceScopeMatches(presenceData[i][3], activeCourseId) && 
+                presenceScopeMatches(presenceData[i][4], activeSessionId)) {
                 return { presence_id: presenceData[i][0], status: 'already_checked_in' };
             }
         }
 
         const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
-        presenceSheet.appendRow([presenceId, body.user_id, body.device_id || 'web-scanner', activeCourseId, activeSessionId, body.qr_token, checkTime.toISOString(), nowISO()]);
+        presenceSheet.appendRow([presenceId, userId, body.device_id || 'web-scanner', activeCourseId, activeSessionId, qrToken, checkTime.toISOString(), nowISO()]);
         
         return { presence_id: presenceId, status: 'checked_in' };
 
@@ -194,23 +216,31 @@ function processCheckinUI(payload) {
 }
 
 function getPresenceStatus(userId, courseId, sessionId) {
+    const normalizedUserId = sanitizeUserId(userId);
+    const normalizedCourseId = sanitizePresenceScopeValue(courseId);
+    const normalizedSessionId = sanitizePresenceScopeValue(sessionId);
     const sheet = getOrCreateSheet(SHEET.PRESENCE);
     const data = sheet.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === userId && data[i][3] === courseId && data[i][4] === sessionId) {
-            return { user_id: userId, course_id: courseId, session_id: sessionId, status: 'checked_in', last_ts: data[i][6] };
+        if (sanitizeUserId(data[i][1]) === normalizedUserId &&
+            presenceScopeMatches(data[i][3], normalizedCourseId) &&
+            presenceScopeMatches(data[i][4], normalizedSessionId)) {
+            return { user_id: normalizedUserId, course_id: normalizedCourseId, session_id: normalizedSessionId, status: 'checked_in', last_ts: data[i][6] };
         }
     }
     return { status: 'not_checked_in' };
 }
 
 function getPresenceList(courseId, sessionId) {
-    if (!courseId || !sessionId) throw new Error('Missing fields: course_id, session_id');
+    const normalizedCourseId = sanitizePresenceScopeValue(courseId);
+    const normalizedSessionId = sanitizePresenceScopeValue(sessionId);
+    if (!normalizedCourseId || !normalizedSessionId) throw new Error('Missing fields: course_id, session_id');
     const sheet = getOrCreateSheet(SHEET.PRESENCE);
     const data = sheet.getDataRange().getValues();
     const students = [];
     for (let i = 1; i < data.length; i++) {
-        if (data[i][3] === courseId && data[i][4] === sessionId) {
+        if (presenceScopeMatches(data[i][3], normalizedCourseId) &&
+            presenceScopeMatches(data[i][4], normalizedSessionId)) {
             students.push({
                 presence_id: data[i][0],
                 user_id: data[i][1],
@@ -219,17 +249,20 @@ function getPresenceList(courseId, sessionId) {
             });
         }
     }
-    return { course_id: courseId, session_id: sessionId, count: students.length, students: students };
+    return { course_id: normalizedCourseId, session_id: normalizedSessionId, count: students.length, students: students };
 }
 
 // --- FUNGSI AMBIL DATA REAL-TIME ---
 function getSessionPresenceData(courseId, sessionId) {
     try {
+        const normalizedCourseId = sanitizePresenceScopeValue(courseId);
+        const normalizedSessionId = sanitizePresenceScopeValue(sessionId);
         const sheet = getOrCreateSheet(SHEET.PRESENCE);
         const data = sheet.getDataRange().getValues();
         let users = [];
         for (let i = 1; i < data.length; i++) {
-            if (data[i][3] === courseId && data[i][4] === sessionId) {
+            if (presenceScopeMatches(data[i][3], normalizedCourseId) &&
+                presenceScopeMatches(data[i][4], normalizedSessionId)) {
                 users.push(data[i][1]); // Memasukkan user_id yang cocok
             }
         }

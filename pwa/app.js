@@ -20,6 +20,16 @@ const ATTENDANCE_HIDDEN_PREFIX = 'attendance_hidden';
 let latestVisibleAttendanceRows = [];
 let currentFeatureSourceMenu = 'role';
 
+function sanitizePresenceScopeInput(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizePresenceScopeKey(value) {
+  return sanitizePresenceScopeInput(value).toLowerCase();
+}
+
 // ─── DEVICE ID ───
 function getDeviceId() {
   let deviceId = localStorage.getItem('device_id');
@@ -218,7 +228,9 @@ function openSwapGps() {
 }
 
 function getAttendanceHiddenStorageKey(courseId, sessionId) {
-  return ATTENDANCE_HIDDEN_PREFIX + ':' + (courseId || '-') + ':' + (sessionId || '-');
+  return ATTENDANCE_HIDDEN_PREFIX + ':' +
+    (normalizePresenceScopeKey(courseId) || '-') + ':' +
+    (normalizePresenceScopeKey(sessionId) || '-');
 }
 
 function getHiddenAttendanceIds(courseId = activeCourseId, sessionId = activeSessionId) {
@@ -266,14 +278,19 @@ function togglePresence() {
   const sessionSelect = document.getElementById('sessionId');
 
   if (isPresenceRunning) {
-    activeCourseId = courseSelect.value.trim();
-    activeSessionId = sessionSelect.value.trim();
+    activeCourseId = sanitizePresenceScopeInput(courseSelect.value);
+    activeSessionId = sanitizePresenceScopeInput(sessionSelect.value);
 
     if (!activeCourseId || !activeSessionId) {
-      showToast('Pilih Mata Kuliah dan Sesi terlebih dahulu!', 'error');
+      showToast('Isi Mata Kuliah dan Sesi terlebih dahulu!', 'error');
       isPresenceRunning = false;
       return;
     }
+
+    courseSelect.value = activeCourseId;
+    sessionSelect.value = activeSessionId;
+    saveHiddenAttendanceIds([], activeCourseId, activeSessionId);
+    latestVisibleAttendanceRows = [];
 
     btn.textContent = 'Hentikan Presensi';
     btn.classList.remove('btn-primary');
@@ -563,8 +580,8 @@ function parseScannedQrPayload(decodedText) {
 
 function applyScannedQrPayload(payload) {
   const token = String(payload && payload.token ? payload.token : '').trim();
-  const courseId = String(payload && payload.courseId ? payload.courseId : '').trim();
-  const sessionId = String(payload && payload.sessionId ? payload.sessionId : '').trim();
+  const courseId = sanitizePresenceScopeInput(payload && payload.courseId ? payload.courseId : '');
+  const sessionId = sanitizePresenceScopeInput(payload && payload.sessionId ? payload.sessionId : '');
   const manualTokenEl = document.getElementById('manualToken');
 
   scannedCourseId = courseId;
@@ -635,8 +652,8 @@ async function doCheckin() {
   const userId = document.getElementById('userId').value.trim();
   const scannedPayload = parseScannedQrPayload(document.getElementById('manualToken').value.trim());
   const token = scannedPayload.token;
-  const courseId = scannedCourseId || scannedPayload.courseId;
-  const sessionId = scannedSessionId || scannedPayload.sessionId;
+  const courseId = sanitizePresenceScopeInput(scannedCourseId || scannedPayload.courseId);
+  const sessionId = sanitizePresenceScopeInput(scannedSessionId || scannedPayload.sessionId);
 
   if (!userId) { showToast('User ID / NIM wajib diisi!', 'error'); return; }
   if (!token) { showToast('Scan QR terlebih dahulu!', 'error'); return; }
